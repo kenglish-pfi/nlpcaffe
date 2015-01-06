@@ -350,6 +350,34 @@ class CuDNNPoolingLayer : public PoolingLayer<Dtype> {
 };
 #endif
 
+template <typename Dtype>
+class LstmLayer : public Layer<Dtype> {
+ public:
+  explicit LstmLayer(const LayerParameter& param)
+      : Layer<Dtype>(param) {}
+  virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+  virtual void Reshape(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+
+  virtual inline LayerParameter_LayerType type() const {
+    return LayerParameter_LayerType_LSTM;
+  }
+
+ protected:
+  virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+  //virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
+      //vector<Blob<Dtype>*>* top);
+  virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, vector<Blob<Dtype>*>* bottom);
+  //virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
+      //const vector<bool>& propagate_down, vector<Blob<Dtype>*>* bottom);
+
+  int channels_; // num memory blocks;
+  int height_; // cells per block;
+};
+
 }  // namespace caffe
 
 #endif  // CAFFE_VISION_LAYERS_HPP_
