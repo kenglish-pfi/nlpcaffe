@@ -19,6 +19,17 @@ inline Dtype sigmoid_diff(Dtype x) {
 }
 
 template <typename Dtype>
+inline Dtype tanh(Dtype x) {
+  Dtype exp2x = exp(2 * x);
+  return (exp2x - Dtype(1)) / (exp2x + Dtype(1));
+}
+
+template <typename Dtype>
+inline Dtype tanh_diff(Dtype x) {
+  return (1. - x * x);
+}
+
+template <typename Dtype>
 void LstmLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       vector<Blob<Dtype>*>* top) {
   LstmParameter lstm_param = this->layer_param_.lstm_param();
@@ -185,7 +196,7 @@ void LstmLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       output_gate_mult = sigmoid(output_gate_mult);
 
       next_state_data[idx] = prev_state_data[idx] * forget_gate_mult + input * input_gate_mult;
-      top_data[idx] = next_state_data[idx] * output_gate_mult;
+      top_data[idx] = tanh(next_state_data[idx]) * output_gate_mult;
     }
   }
 }
@@ -250,12 +261,13 @@ void LstmLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
       forget_gate_mult = sigmoid(forget_gate_mult);
       output_gate_mult = sigmoid(output_gate_mult);
 
-      const Dtype next_state_tot_diff = next_state_diff[idx] + output_gate_mult * top_diff[idx];
+      const Dtype next_state_tanh = tanh(next_state_data[idx]);
+      const Dtype next_state_tot_diff = next_state_diff[idx] + output_gate_mult * top_diff[idx] * tanh_diff(next_state_tanh);
 
       prev_state_diff[idx] += next_state_tot_diff * forget_gate_mult;
 
       forget_gate_bias_diff[i] += next_state_tot_diff * prev_state_data[idx] * sigmoid_diff(forget_gate_mult);
-      output_gate_bias_diff[i] += top_diff[idx] * next_state_data[idx] * sigmoid_diff(output_gate_mult);
+      output_gate_bias_diff[i] += top_diff[idx] * next_state_tanh * sigmoid_diff(output_gate_mult);
       input_gate_bias_diff[i] += next_state_tot_diff * input * sigmoid_diff(input_gate_mult);
       input_bias_diff[idx] += next_state_tot_diff * input_gate_mult * sigmoid_diff(input);
 
@@ -263,11 +275,11 @@ void LstmLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
         input_weight_diff[k + idx * input_data_size] += sigmoid_diff(input) * next_state_tot_diff * input_gate_mult * input_data[k];
         input_gate_weight_diff[k + i * input_data_size] += sigmoid_diff(input_gate_mult) * next_state_tot_diff * input * input_data[k];
         forget_gate_weight_diff[k + i * input_data_size] += sigmoid_diff(forget_gate_mult) * prev_state_data[idx] * next_state_tot_diff * input_data[k];
-        output_gate_weight_diff[k + i * input_data_size] += sigmoid_diff(output_gate_mult) * top_diff[idx] * next_state_data[idx] * input_data[k];
+        output_gate_weight_diff[k + i * input_data_size] += sigmoid_diff(output_gate_mult) * top_diff[idx] * next_state_tanh * input_data[k];
         input_diff[k] += sigmoid_diff(input) * next_state_tot_diff * input_gate_mult * input_weight[k + idx * input_data_size];
         input_diff[k] += sigmoid_diff(input_gate_mult) * next_state_tot_diff * input * input_gate_weight[k + i * input_data_size];
         input_diff[k] += sigmoid_diff(forget_gate_mult) * next_state_tot_diff * prev_state_data[idx] * forget_gate_weight[k + i * input_data_size];
-        input_diff[k] += sigmoid_diff(output_gate_mult) * top_diff[idx] * next_state_data[idx] * output_gate_weight[k + i * input_data_size];
+        input_diff[k] += sigmoid_diff(output_gate_mult) * top_diff[idx] * next_state_tanh * output_gate_weight[k + i * input_data_size];
       }
     }
   }
