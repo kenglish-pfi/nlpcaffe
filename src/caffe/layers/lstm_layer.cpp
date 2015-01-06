@@ -33,9 +33,7 @@ template <typename Dtype>
 void LstmLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       vector<Blob<Dtype>*>* top) {
   LstmParameter lstm_param = this->layer_param_.lstm_param();
-  CHECK((lstm_param.has_num_blocks()))
-      << "lstm_param.has_num_blocks()";
-  CHECK((lstm_param.has_cells_per_block()))
+  CHECK((lstm_param.has_num_cells()))
       << "lstm_param.has_cells_per_block()";
   CHECK((lstm_param.has_input_weight_filler()))
       << "lstm_param.has_input_weight_filler()";
@@ -53,15 +51,14 @@ void LstmLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       << "lstm_param.has_output_gate_weight_filler()";
   CHECK((lstm_param.has_output_gate_bias_filler()))
       << "lstm_param.has_output_gate_bias_filler()";
-  channels_ = lstm_param.num_blocks();
-  height_ = lstm_param.cells_per_block();
+  channels_ = lstm_param.num_cells();
   const int input_data_size = bottom[0]->count();
-  CHECK((channels_ * height_ == input_data_size))
-      << "input dimension must match total number of cells " << input_data_size << ", " << channels_ * height_;
+  CHECK((channels_ == input_data_size))
+      << "input dimension must match total number of cells " << input_data_size << ", " << channels_;
 
   this->blobs_.resize(8);
   this->blobs_[0].reset(new Blob<Dtype>(
-      1, channels_, height_, input_data_size));
+      1, channels_, 1, input_data_size));
   shared_ptr<Filler<Dtype> > input_weight_filler(GetFiller<Dtype>(
       this->layer_param_.lstm_param().input_weight_filler()));
   input_weight_filler->Fill(this->blobs_[0].get());
@@ -85,7 +82,7 @@ void LstmLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   output_gate_weight_filler->Fill(this->blobs_[6].get());
 
 
-  this->blobs_[1].reset(new Blob<Dtype>(1, channels_, height_, 1));
+  this->blobs_[1].reset(new Blob<Dtype>(1, channels_, 1, 1));
   shared_ptr<Filler<Dtype> > input_bias_filler(GetFiller<Dtype>(
       this->layer_param_.lstm_param().input_bias_filler()));
   input_bias_filler->Fill(this->blobs_[1].get());
@@ -113,8 +110,8 @@ void LstmLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
 template <typename Dtype>
 void LstmLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
       vector<Blob<Dtype>*>* top) {
-  (*top)[0]->Reshape(1,channels_, height_, 1);
-  (*top)[1]->Reshape(1,channels_, height_, 1);
+  (*top)[0]->Reshape(1,channels_, 1, 1);
+  (*top)[1]->Reshape(1,channels_, 1, 1);
   //num_ = bottom[0]->num();
   //height_ = bottom[0]->height();
   //width_ = bottom[0]->width();
@@ -177,27 +174,23 @@ void LstmLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   Dtype* next_state_data = (*top)[1]->mutable_cpu_data();
   
   for (int i = 0; i < channels_; i++) {
-    for (int j = 0; j < height_; j++) {
-      const int idx = i * height_ + j;
-
-      Dtype input = input_bias[idx];
-      Dtype input_gate_mult = input_gate_bias[i];
-      Dtype forget_gate_mult = forget_gate_bias[i];
-      Dtype output_gate_mult = output_gate_bias[i];
-      for (int k = 0; k < input_data_size; k++) {
-        input += input_weight[k + idx*input_data_size] * input_data[k];
-        input_gate_mult += input_gate_weight[k + i * input_data_size] * input_data[k];
-        forget_gate_mult += forget_gate_weight[k + i * input_data_size] * input_data[k];
-        output_gate_mult += output_gate_weight[k + i * input_data_size] * input_data[k];
-      }
-      input = sigmoid(input);
-      input_gate_mult = sigmoid(input_gate_mult);
-      forget_gate_mult = sigmoid(forget_gate_mult);
-      output_gate_mult = sigmoid(output_gate_mult);
-
-      next_state_data[idx] = prev_state_data[idx] * forget_gate_mult + input * input_gate_mult;
-      top_data[idx] = tanh(next_state_data[idx]) * output_gate_mult;
+    Dtype input = input_bias[i];
+    Dtype input_gate_mult = input_gate_bias[i];
+    Dtype forget_gate_mult = forget_gate_bias[i];
+    Dtype output_gate_mult = output_gate_bias[i];
+    for (int k = 0; k < input_data_size; k++) {
+      input += input_weight[k + i*input_data_size] * input_data[k];
+      input_gate_mult += input_gate_weight[k + i * input_data_size] * input_data[k];
+      forget_gate_mult += forget_gate_weight[k + i * input_data_size] * input_data[k];
+      output_gate_mult += output_gate_weight[k + i * input_data_size] * input_data[k];
     }
+    input = sigmoid(input);
+    input_gate_mult = sigmoid(input_gate_mult);
+    forget_gate_mult = sigmoid(forget_gate_mult);
+    output_gate_mult = sigmoid(output_gate_mult);
+
+    next_state_data[i] = prev_state_data[i] * forget_gate_mult + input * input_gate_mult;
+    top_data[i] = tanh(next_state_data[i]) * output_gate_mult;
   }
 }
 
@@ -243,44 +236,40 @@ void LstmLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   const Dtype* next_state_diff = top[1]->cpu_diff();
 
   for (int i = 0; i < channels_; i++) {
-    for (int j = 0; j < height_; j++) {
-      const int idx = i * height_ + j;
+    Dtype input = input_bias[i];
+    Dtype input_gate_mult = input_gate_bias[i];
+    Dtype forget_gate_mult = forget_gate_bias[i];
+    Dtype output_gate_mult = output_gate_bias[i];
+    for (int k = 0; k < input_data_size; k++) {
+      input += input_weight[k + i*input_data_size] * input_data[k];
+      input_gate_mult += input_gate_weight[k + i * input_data_size] * input_data[k];
+      forget_gate_mult += forget_gate_weight[k + i * input_data_size] * input_data[k];
+      output_gate_mult += output_gate_weight[k + i * input_data_size] * input_data[k];
+    }
+    input = sigmoid(input);
+    input_gate_mult = sigmoid(input_gate_mult);
+    forget_gate_mult = sigmoid(forget_gate_mult);
+    output_gate_mult = sigmoid(output_gate_mult);
 
-      Dtype input = input_bias[idx];
-      Dtype input_gate_mult = input_gate_bias[i];
-      Dtype forget_gate_mult = forget_gate_bias[i];
-      Dtype output_gate_mult = output_gate_bias[i];
-      for (int k = 0; k < input_data_size; k++) {
-        input += input_weight[k + idx*input_data_size] * input_data[k];
-        input_gate_mult += input_gate_weight[k + i * input_data_size] * input_data[k];
-        forget_gate_mult += forget_gate_weight[k + i * input_data_size] * input_data[k];
-        output_gate_mult += output_gate_weight[k + i * input_data_size] * input_data[k];
-      }
-      input = sigmoid(input);
-      input_gate_mult = sigmoid(input_gate_mult);
-      forget_gate_mult = sigmoid(forget_gate_mult);
-      output_gate_mult = sigmoid(output_gate_mult);
+    const Dtype next_state_tanh = tanh(next_state_data[i]);
+    const Dtype next_state_tot_diff = next_state_diff[i] + output_gate_mult * top_diff[i] * tanh_diff(next_state_tanh);
 
-      const Dtype next_state_tanh = tanh(next_state_data[idx]);
-      const Dtype next_state_tot_diff = next_state_diff[idx] + output_gate_mult * top_diff[idx] * tanh_diff(next_state_tanh);
+    prev_state_diff[i] += next_state_tot_diff * forget_gate_mult;
 
-      prev_state_diff[idx] += next_state_tot_diff * forget_gate_mult;
+    forget_gate_bias_diff[i] += next_state_tot_diff * prev_state_data[i] * sigmoid_diff(forget_gate_mult);
+    output_gate_bias_diff[i] += top_diff[i] * next_state_tanh * sigmoid_diff(output_gate_mult);
+    input_gate_bias_diff[i] += next_state_tot_diff * input * sigmoid_diff(input_gate_mult);
+    input_bias_diff[i] += next_state_tot_diff * input_gate_mult * sigmoid_diff(input);
 
-      forget_gate_bias_diff[i] += next_state_tot_diff * prev_state_data[idx] * sigmoid_diff(forget_gate_mult);
-      output_gate_bias_diff[i] += top_diff[idx] * next_state_tanh * sigmoid_diff(output_gate_mult);
-      input_gate_bias_diff[i] += next_state_tot_diff * input * sigmoid_diff(input_gate_mult);
-      input_bias_diff[idx] += next_state_tot_diff * input_gate_mult * sigmoid_diff(input);
-
-      for (int k = 0; k < input_data_size; k++) {
-        input_weight_diff[k + idx * input_data_size] += sigmoid_diff(input) * next_state_tot_diff * input_gate_mult * input_data[k];
-        input_gate_weight_diff[k + i * input_data_size] += sigmoid_diff(input_gate_mult) * next_state_tot_diff * input * input_data[k];
-        forget_gate_weight_diff[k + i * input_data_size] += sigmoid_diff(forget_gate_mult) * prev_state_data[idx] * next_state_tot_diff * input_data[k];
-        output_gate_weight_diff[k + i * input_data_size] += sigmoid_diff(output_gate_mult) * top_diff[idx] * next_state_tanh * input_data[k];
-        input_diff[k] += sigmoid_diff(input) * next_state_tot_diff * input_gate_mult * input_weight[k + idx * input_data_size];
-        input_diff[k] += sigmoid_diff(input_gate_mult) * next_state_tot_diff * input * input_gate_weight[k + i * input_data_size];
-        input_diff[k] += sigmoid_diff(forget_gate_mult) * next_state_tot_diff * prev_state_data[idx] * forget_gate_weight[k + i * input_data_size];
-        input_diff[k] += sigmoid_diff(output_gate_mult) * top_diff[idx] * next_state_tanh * output_gate_weight[k + i * input_data_size];
-      }
+    for (int k = 0; k < input_data_size; k++) {
+      input_weight_diff[k + i * input_data_size] += sigmoid_diff(input) * next_state_tot_diff * input_gate_mult * input_data[k];
+      input_gate_weight_diff[k + i * input_data_size] += sigmoid_diff(input_gate_mult) * next_state_tot_diff * input * input_data[k];
+      forget_gate_weight_diff[k + i * input_data_size] += sigmoid_diff(forget_gate_mult) * prev_state_data[i] * next_state_tot_diff * input_data[k];
+      output_gate_weight_diff[k + i * input_data_size] += sigmoid_diff(output_gate_mult) * top_diff[i] * next_state_tanh * input_data[k];
+      input_diff[k] += sigmoid_diff(input) * next_state_tot_diff * input_gate_mult * input_weight[k + i * input_data_size];
+      input_diff[k] += sigmoid_diff(input_gate_mult) * next_state_tot_diff * input * input_gate_weight[k + i * input_data_size];
+      input_diff[k] += sigmoid_diff(forget_gate_mult) * next_state_tot_diff * prev_state_data[i] * forget_gate_weight[k + i * input_data_size];
+      input_diff[k] += sigmoid_diff(output_gate_mult) * top_diff[i] * next_state_tanh * output_gate_weight[k + i * input_data_size];
     }
   }
 }

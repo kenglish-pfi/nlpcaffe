@@ -12,8 +12,7 @@
 #include "caffe/test/test_caffe_main.hpp"
 #include "caffe/test/test_gradient_check_util.hpp"
 
-#define NUM_CELL_BLOCKS 5
-#define CELLS_PER_BLOCK 5
+#define NUM_CELLS 5
 
 using std::min;
 using std::max;
@@ -33,8 +32,8 @@ class LstmLayerTest : public MultiDeviceTest<TypeParam> {
         blob_top2_(new Blob<Dtype>()) {}
   virtual void SetUp() {
     Caffe::set_random_seed(1601);
-    blob_bottom_->Reshape(NUM_CELL_BLOCKS * CELLS_PER_BLOCK, 1, 1, 1);
-    blob_bottom2_->Reshape(NUM_CELL_BLOCKS * CELLS_PER_BLOCK, 1, 1, 1);
+    blob_bottom_->Reshape(NUM_CELLS, 1, 1, 1);
+    blob_bottom2_->Reshape(NUM_CELLS, 1, 1, 1);
     // fill the values
     FillerParameter filler_param;
     GaussianFiller<Dtype> filler(filler_param);
@@ -97,8 +96,7 @@ TYPED_TEST(LstmLayerTest, TestSetupAcrossChannels) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
   LstmParameter* lstm_param = layer_param.mutable_lstm_param();
-  lstm_param->set_num_blocks(NUM_CELL_BLOCKS);
-  lstm_param->set_cells_per_block(CELLS_PER_BLOCK);
+  lstm_param->set_num_cells(NUM_CELLS);
   lstm_param->mutable_input_bias_filler()->set_type("constant");
   lstm_param->mutable_input_bias_filler()->set_value(0.1);
   lstm_param->mutable_input_gate_bias_filler()->set_type("constant");
@@ -118,8 +116,8 @@ TYPED_TEST(LstmLayerTest, TestSetupAcrossChannels) {
   LstmLayer<Dtype> layer(layer_param);
   layer.SetUp(this->blob_bottom_vec_, &(this->blob_top_vec_));
   EXPECT_EQ(this->blob_top_->num(), 1);
-  EXPECT_EQ(this->blob_top_->channels(), NUM_CELL_BLOCKS);
-  EXPECT_EQ(this->blob_top_->height(), CELLS_PER_BLOCK);
+  EXPECT_EQ(this->blob_top_->channels(), NUM_CELLS);
+  EXPECT_EQ(this->blob_top_->height(), 1);
   EXPECT_EQ(this->blob_top_->width(), 1);
 }
 
@@ -142,8 +140,7 @@ TYPED_TEST(LstmLayerTest, TestGradientAcrossChannels) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
   LstmParameter* lstm_param = layer_param.mutable_lstm_param();
-  lstm_param->set_num_blocks(NUM_CELL_BLOCKS);
-  lstm_param->set_cells_per_block(CELLS_PER_BLOCK);
+  lstm_param->set_num_cells(NUM_CELLS);
   lstm_param->mutable_input_bias_filler()->set_type("constant");
   lstm_param->mutable_input_bias_filler()->set_value(0.1);
   lstm_param->mutable_input_gate_bias_filler()->set_type("constant");

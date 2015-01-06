@@ -374,8 +374,7 @@ class LstmLayer : public Layer<Dtype> {
   //virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
       //const vector<bool>& propagate_down, vector<Blob<Dtype>*>* bottom);
 
-  int channels_; // num memory blocks;
-  int height_; // cells per block;
+  int channels_; // num memory cells;
 };
 
 }  // namespace caffe
