@@ -32,7 +32,7 @@ class LstmLayerTest : public MultiDeviceTest<TypeParam> {
         blob_top2_(new Blob<Dtype>()) {}
   virtual void SetUp() {
     Caffe::set_random_seed(1601);
-    blob_bottom_->Reshape(NUM_CELLS, 1, 1, 1);
+    blob_bottom_->Reshape(2, 1, 1, 1);
     blob_bottom2_->Reshape(NUM_CELLS, 1, 1, 1);
     // fill the values
     FillerParameter filler_param;
