@@ -1,8 +1,5 @@
 #include <vector>
-
-//#include "caffe/filler.hpp"
 #include "caffe/layer.hpp"
-//#include "caffe/util/im2col.hpp"
 #include "caffe/util/math_functions.hpp"
 #include "caffe/vision_layers.hpp"
 
@@ -52,9 +49,9 @@ void LstmLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   CHECK((lstm_param.has_output_gate_bias_filler()))
       << "lstm_param.has_output_gate_bias_filler()";
   channels_ = lstm_param.num_cells();
-  const int input_data_size = bottom[0]->count();
-  //CHECK((channels_ == input_data_size))
-      //<< "input dimension must match total number of cells " << input_data_size << ", " << channels_;
+  const int input_data_size = (bottom[0]->channels() *
+                               bottom[0]->width() *
+                               bottom[0]->height());
 
   this->blobs_.resize(8);
   this->blobs_[0].reset(new Blob<Dtype>(
@@ -102,64 +99,37 @@ void LstmLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       this->layer_param_.lstm_param().output_gate_bias_filler()));
   output_gate_bias_filler->Fill(this->blobs_[7].get());
 
+  for (int i = 0; i < channels_; i++) {
+    this->blobs_[2]->mutable_cpu_data()[(i + 1) * (input_data_size + 1) - 1] = 0;
+    this->blobs_[2]->mutable_cpu_data()[(i + 1) * (input_data_size + 1) - 1] = Dtype(this->layer_param_.lstm_param().input_gate_cell_weight_filler());
+    this->blobs_[4]->mutable_cpu_data()[(i + 1) * (input_data_size + 1) - 1] = Dtype(this->layer_param_.lstm_param().forget_gate_cell_weight_filler());
+    this->blobs_[6]->mutable_cpu_data()[(i + 1) * (input_data_size + 1) - 1] = Dtype(this->layer_param_.lstm_param().output_gate_cell_weight_filler());
+  }
 
-  //Propagate gradients to the parameters (as directed by backward pass).
+  // Propagate gradients to the parameters (as directed by backward pass).
   this->param_propagate_down_.resize(this->blobs_.size(), true);
 }
 
 template <typename Dtype>
 void LstmLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
       vector<Blob<Dtype>*>* top) {
-  (*top)[0]->Reshape(1,channels_, 1, 1);
-  (*top)[1]->Reshape(1,channels_, 1, 1);
-  //num_ = bottom[0]->num();
-  //height_ = bottom[0]->height();
-  //width_ = bottom[0]->width();
-  //CHECK_EQ(bottom[0]->channels(), channels_) << "Input size incompatible with"
-    //" convolution kernel.";
-  //// TODO: generalize to handle inputs of different shapes.
-  //for (int bottom_id = 1; bottom_id < bottom.size(); ++bottom_id) {
-    //CHECK_EQ(num_, bottom[bottom_id]->num()) << "Inputs must have same num.";
-    //CHECK_EQ(channels_, bottom[bottom_id]->channels())
-        //<< "Inputs must have same channels.";
-    //CHECK_EQ(height_, bottom[bottom_id]->height())
-        //<< "Inputs must have same height.";
-    //CHECK_EQ(width_, bottom[bottom_id]->width())
-        //<< "Inputs must have same width.";
-  //}
-  //// Shape the tops.
-  //height_out_ =
-      //(height_ + 2 * pad_h_ - kernel_h_) / stride_h_ + 1;
-  //width_out_ = (width_ + 2 * pad_w_ - kernel_w_) / stride_w_ + 1;
-  //for (int top_id = 0; top_id < top->size(); ++top_id) {
-    //(*top)[top_id]->Reshape(num_, num_output_, height_out_, width_out_);
-  //}
-  //// Prepare the matrix multiplication computation.
-  //// Each input will be convolved as a single GEMM.
-  //M_ = num_output_ / group_;
-  //K_ = channels_ * kernel_h_ * kernel_w_ / group_;
-  //N_ = height_out_ * width_out_;
-  //// The im2col result buffer will only hold one image at a time to avoid
-  //// overly large memory usage.
-  //col_buffer_.Reshape(
-      //1, channels_ * kernel_h_ * kernel_w_, height_out_, width_out_);
-  //for (int top_id = 0; top_id < top->size(); ++top_id) {
-    //(*top)[top_id]->Reshape(num_, num_output_, height_out_, width_out_);
-  //}
-  //// Set up the all ones "bias multiplier" for adding biases by BLAS
-  //if (bias_term_) {
-    //bias_multiplier_.Reshape(1, 1, 1, N_);
-    //caffe_set(N_, Dtype(1), bias_multiplier_.mutable_cpu_data());
-  //}
+  CHECK((this->layer_param_.bottom_size() == 2 || this->layer_param_.bottom_size() == 0))
+      << "LSTM must have a data and cell bottom";
+  CHECK((this->layer_param_.top_size() == 2 || this->layer_param_.top_size() == 0))
+      << "LSTM must have a data and cell top";
+  num_ = bottom[0]->num();
+  (*top)[0]->Reshape(num_, channels_, 1, 1);
+  (*top)[1]->Reshape(num_, channels_, 1, 1);
 }
 
 template <typename Dtype>
 void LstmLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       vector<Blob<Dtype>*>* top) {
-
   const Dtype* input_data = bottom[0]->cpu_data();
   const Dtype* prev_state_data = bottom[1]->cpu_data();
-  const int input_data_size = bottom[0]->count();
+  const int input_data_size = (bottom[0]->channels() *
+                               bottom[0]->width() *
+                               bottom[0]->height());
 
   const Dtype* input_weight = this->blobs_[0]->cpu_data();
   const Dtype* input_bias = this->blobs_[1]->cpu_data();
@@ -172,27 +142,31 @@ void LstmLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
 
   Dtype* top_data = (*top)[0]->mutable_cpu_data();
   Dtype* next_state_data = (*top)[1]->mutable_cpu_data();
-  
-  for (int i = 0; i < channels_; i++) {
-    const int cid = (i + 1) * (input_data_size + 1) - 1;
-    Dtype input = input_bias[i];
-    Dtype input_gate_mult = input_gate_bias[i] + input_gate_weight[cid] * prev_state_data[i];
-    Dtype forget_gate_mult = forget_gate_bias[i] + forget_gate_weight[cid] * prev_state_data[i];
-    Dtype output_gate_mult = output_gate_bias[i] + output_gate_weight[cid] * prev_state_data[i];
-    for (int k = 0; k < input_data_size; k++) {
-      const int wid = k + i * (input_data_size + 1);
-      input += input_weight[wid] * input_data[k];
-      input_gate_mult += input_gate_weight[wid] * input_data[k];
-      forget_gate_mult += forget_gate_weight[wid] * input_data[k];
-      output_gate_mult += output_gate_weight[wid] * input_data[k];
-    }
-    input = tanh(input);
-    input_gate_mult = sigmoid(input_gate_mult);
-    forget_gate_mult = sigmoid(forget_gate_mult);
-    output_gate_mult = sigmoid(output_gate_mult);
 
-    next_state_data[i] = prev_state_data[i] * forget_gate_mult + input * input_gate_mult;
-    top_data[i] = tanh(next_state_data[i]) * output_gate_mult;
+  for (int n = 0; n < num_; n++) {
+    const int state_offset = n * channels_;
+    const int input_offset = n * input_data_size;
+    for (int i = 0; i < channels_; i++) {
+      const int cid = (i + 1) * (input_data_size + 1) - 1;
+      Dtype input = input_bias[i];
+      Dtype input_gate_mult = input_gate_bias[i] + input_gate_weight[cid] * prev_state_data[state_offset + i];
+      Dtype forget_gate_mult = forget_gate_bias[i] + forget_gate_weight[cid] * prev_state_data[state_offset + i];
+      Dtype output_gate_mult = output_gate_bias[i] + output_gate_weight[cid] * prev_state_data[state_offset + i];
+      for (int k = 0; k < input_data_size; k++) {
+        const int wid = k + i * (input_data_size + 1);
+        input += input_weight[wid] * input_data[input_offset + k];
+        input_gate_mult += input_gate_weight[wid] * input_data[input_offset + k];
+        forget_gate_mult += forget_gate_weight[wid] * input_data[input_offset + k];
+        output_gate_mult += output_gate_weight[wid] * input_data[input_offset + k];
+      }
+      input = tanh(input);
+      input_gate_mult = sigmoid(input_gate_mult);
+      forget_gate_mult = sigmoid(forget_gate_mult);
+      output_gate_mult = sigmoid(output_gate_mult);
+
+      next_state_data[state_offset + i] = prev_state_data[state_offset + i] * forget_gate_mult + input * input_gate_mult;
+      top_data[state_offset + i] = tanh(next_state_data[state_offset + i]) * output_gate_mult;
+    }
   }
 }
 
@@ -206,7 +180,7 @@ void LstmLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   Dtype* input_diff = (*bottom)[0]->mutable_cpu_diff();
   const Dtype* prev_state_data = (*bottom)[1]->cpu_data();
   Dtype* prev_state_diff = (*bottom)[1]->mutable_cpu_diff();
-  const int input_data_size = (*bottom)[0]->count();
+  const int input_data_size = (*bottom)[0]->channels() * (*bottom)[0]->width() * (*bottom)[0]->height();
 
   const Dtype* input_weight = this->blobs_[0]->cpu_data();
   const Dtype* input_bias = this->blobs_[1]->cpu_data();
@@ -234,51 +208,55 @@ void LstmLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   const Dtype* next_state_data = top[1]->cpu_data();
   const Dtype* next_state_diff = top[1]->cpu_diff();
 
-  for (int i = 0; i < channels_; i++) {
-    const int cid = (i + 1) * (input_data_size + 1) - 1;
-    Dtype input = input_bias[i];
-    Dtype input_gate_mult = input_gate_bias[i] + input_gate_weight[cid] * prev_state_data[i];
-    Dtype forget_gate_mult = forget_gate_bias[i] + forget_gate_weight[cid] * prev_state_data[i];
-    Dtype output_gate_mult = output_gate_bias[i] + output_gate_weight[cid] * prev_state_data[i];
-    for (int k = 0; k < input_data_size; k++) {
-      const int wid = k + i * (input_data_size + 1);
-      input += input_weight[wid] * input_data[k];
-      input_gate_mult += input_gate_weight[wid] * input_data[k];
-      forget_gate_mult += forget_gate_weight[wid] * input_data[k];
-      output_gate_mult += output_gate_weight[wid] * input_data[k];
-    }
-    input = tanh(input);
-    input_gate_mult = sigmoid(input_gate_mult);
-    forget_gate_mult = sigmoid(forget_gate_mult);
-    output_gate_mult = sigmoid(output_gate_mult);
+  for (int n = 0; n < num_; n++) {
+    const int state_offset = n * channels_;
+    const int input_offset = n * input_data_size;
+    for (int i = 0; i < channels_; i++) {
+      const int cid = (i + 1) * (input_data_size + 1) - 1;
+      Dtype input = input_bias[i];
+      Dtype input_gate_mult = input_gate_bias[i] + input_gate_weight[cid] * prev_state_data[state_offset + i];
+      Dtype forget_gate_mult = forget_gate_bias[i] + forget_gate_weight[cid] * prev_state_data[state_offset + i];
+      Dtype output_gate_mult = output_gate_bias[i] + output_gate_weight[cid] * prev_state_data[state_offset + i];
+      for (int k = 0; k < input_data_size; k++) {
+        const int wid = k + i * (input_data_size + 1);
+        input += input_weight[wid] * input_data[input_offset + k];
+        input_gate_mult += input_gate_weight[wid] * input_data[input_offset + k];
+        forget_gate_mult += forget_gate_weight[wid] * input_data[input_offset + k];
+        output_gate_mult += output_gate_weight[wid] * input_data[input_offset + k];
+      }
+      input = tanh(input);
+      input_gate_mult = sigmoid(input_gate_mult);
+      forget_gate_mult = sigmoid(forget_gate_mult);
+      output_gate_mult = sigmoid(output_gate_mult);
 
-    const Dtype next_state_tanh = tanh(next_state_data[i]);
-    const Dtype next_state_tot_diff = next_state_diff[i] + output_gate_mult * top_diff[i] * tanh_diff(next_state_tanh);
+      const Dtype next_state_tanh = tanh(next_state_data[state_offset + i]);
+      const Dtype next_state_tot_diff = next_state_diff[state_offset + i] + output_gate_mult * top_diff[state_offset + i] * tanh_diff(next_state_tanh);
 
-    prev_state_diff[i] += next_state_tot_diff * forget_gate_mult;
+      prev_state_diff[state_offset + i] += next_state_tot_diff * forget_gate_mult;
 
-    forget_gate_bias_diff[i] += next_state_tot_diff * prev_state_data[i] * sigmoid_diff(forget_gate_mult);
-    output_gate_bias_diff[i] += top_diff[i] * next_state_tanh * sigmoid_diff(output_gate_mult);
-    input_gate_bias_diff[i] += next_state_tot_diff * input * sigmoid_diff(input_gate_mult);
-    input_bias_diff[i] += next_state_tot_diff * input_gate_mult * tanh_diff(input);
+      forget_gate_bias_diff[i] += next_state_tot_diff * prev_state_data[state_offset + i] * sigmoid_diff(forget_gate_mult);
+      output_gate_bias_diff[i] += top_diff[state_offset + i] * next_state_tanh * sigmoid_diff(output_gate_mult);
+      input_gate_bias_diff[i] += next_state_tot_diff * input * sigmoid_diff(input_gate_mult);
+      input_bias_diff[i] += next_state_tot_diff * input_gate_mult * tanh_diff(input);
 
-    input_gate_weight_diff[cid] += sigmoid_diff(input_gate_mult) * next_state_tot_diff * input * prev_state_data[i];
-    forget_gate_weight_diff[cid] += sigmoid_diff(forget_gate_mult) * prev_state_data[i] * next_state_tot_diff * prev_state_data[i];
-    output_gate_weight_diff[cid] += sigmoid_diff(output_gate_mult) * top_diff[i] * next_state_tanh * prev_state_data[i];
-    prev_state_diff[i] += sigmoid_diff(input_gate_mult) * next_state_tot_diff * input * input_gate_weight[cid];
-    prev_state_diff[i] += sigmoid_diff(forget_gate_mult) * next_state_tot_diff * prev_state_data[i] * forget_gate_weight[cid];
-    prev_state_diff[i] += sigmoid_diff(output_gate_mult) * top_diff[i] * next_state_tanh * output_gate_weight[cid];
+      input_gate_weight_diff[cid] += sigmoid_diff(input_gate_mult) * next_state_tot_diff * input * prev_state_data[state_offset + i];
+      forget_gate_weight_diff[cid] += sigmoid_diff(forget_gate_mult) * prev_state_data[state_offset + i] * next_state_tot_diff * prev_state_data[state_offset + i];
+      output_gate_weight_diff[cid] += sigmoid_diff(output_gate_mult) * top_diff[state_offset + i] * next_state_tanh * prev_state_data[state_offset + i];
+      prev_state_diff[state_offset + i] += sigmoid_diff(input_gate_mult) * next_state_tot_diff * input * input_gate_weight[cid];
+      prev_state_diff[state_offset + i] += sigmoid_diff(forget_gate_mult) * next_state_tot_diff * prev_state_data[state_offset + i] * forget_gate_weight[cid];
+      prev_state_diff[state_offset + i] += sigmoid_diff(output_gate_mult) * top_diff[state_offset + i] * next_state_tanh * output_gate_weight[cid];
 
-    for (int k = 0; k < input_data_size; k++) {
-      const int wid = k + i * (input_data_size + 1);
-      input_weight_diff[wid] += tanh_diff(input) * next_state_tot_diff * input_gate_mult * input_data[k];
-      input_gate_weight_diff[wid] += sigmoid_diff(input_gate_mult) * next_state_tot_diff * input * input_data[k];
-      forget_gate_weight_diff[wid] += sigmoid_diff(forget_gate_mult) * prev_state_data[i] * next_state_tot_diff * input_data[k];
-      output_gate_weight_diff[wid] += sigmoid_diff(output_gate_mult) * top_diff[i] * next_state_tanh * input_data[k];
-      input_diff[k] += tanh_diff(input) * next_state_tot_diff * input_gate_mult * input_weight[wid];
-      input_diff[k] += sigmoid_diff(input_gate_mult) * next_state_tot_diff * input * input_gate_weight[wid];
-      input_diff[k] += sigmoid_diff(forget_gate_mult) * next_state_tot_diff * prev_state_data[i] * forget_gate_weight[wid];
-      input_diff[k] += sigmoid_diff(output_gate_mult) * top_diff[i] * next_state_tanh * output_gate_weight[wid];
+      for (int k = 0; k < input_data_size; k++) {
+        const int wid = k + i * (input_data_size + 1);
+        input_weight_diff[wid] += tanh_diff(input) * next_state_tot_diff * input_gate_mult * input_data[input_offset + k];
+        input_gate_weight_diff[wid] += sigmoid_diff(input_gate_mult) * next_state_tot_diff * input * input_data[input_offset + k];
+        forget_gate_weight_diff[wid] += sigmoid_diff(forget_gate_mult) * prev_state_data[state_offset + i] * next_state_tot_diff * input_data[input_offset + k];
+        output_gate_weight_diff[wid] += sigmoid_diff(output_gate_mult) * top_diff[state_offset + i] * next_state_tanh * input_data[input_offset + k];
+        input_diff[input_offset + k] += tanh_diff(input) * next_state_tot_diff * input_gate_mult * input_weight[wid];
+        input_diff[input_offset + k] += sigmoid_diff(input_gate_mult) * next_state_tot_diff * input * input_gate_weight[wid];
+        input_diff[input_offset + k] += sigmoid_diff(forget_gate_mult) * next_state_tot_diff * prev_state_data[state_offset + i] * forget_gate_weight[wid];
+        input_diff[input_offset + k] += sigmoid_diff(output_gate_mult) * top_diff[state_offset + i] * next_state_tanh * output_gate_weight[wid];
+      }
     }
   }
 }

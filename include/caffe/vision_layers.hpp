@@ -375,6 +375,7 @@ class LstmLayer : public Layer<Dtype> {
       //const vector<bool>& propagate_down, vector<Blob<Dtype>*>* bottom);
 
   int channels_; // num memory cells;
+  int num_; // batch size;
 };
 
 }  // namespace caffe

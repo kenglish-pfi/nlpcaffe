@@ -13,6 +13,7 @@
 #include "caffe/test/test_gradient_check_util.hpp"
 
 #define NUM_CELLS 5
+#define BATCH_SIZE 2
 
 using std::min;
 using std::max;
@@ -32,8 +33,8 @@ class LstmLayerTest : public MultiDeviceTest<TypeParam> {
         blob_top2_(new Blob<Dtype>()) {}
   virtual void SetUp() {
     Caffe::set_random_seed(1601);
-    blob_bottom_->Reshape(2, 1, 1, 1);
-    blob_bottom2_->Reshape(NUM_CELLS, 1, 1, 1);
+    blob_bottom_->Reshape(BATCH_SIZE, 2, 1, 1);
+    blob_bottom2_->Reshape(BATCH_SIZE, NUM_CELLS, 1, 1);
     // fill the values
     FillerParameter filler_param;
     GaussianFiller<Dtype> filler(filler_param);
@@ -115,7 +116,7 @@ TYPED_TEST(LstmLayerTest, TestSetupAcrossChannels) {
   lstm_param->mutable_output_gate_weight_filler()->set_value(0.1);
   LstmLayer<Dtype> layer(layer_param);
   layer.SetUp(this->blob_bottom_vec_, &(this->blob_top_vec_));
-  EXPECT_EQ(this->blob_top_->num(), 1);
+  EXPECT_EQ(this->blob_top_->num(), BATCH_SIZE);
   EXPECT_EQ(this->blob_top_->channels(), NUM_CELLS);
   EXPECT_EQ(this->blob_top_->height(), 1);
   EXPECT_EQ(this->blob_top_->width(), 1);
