@@ -26,6 +26,7 @@ message Datum {
   optional int32 label = 5;
   // Optionally, the datum could also hold float data.
   repeated float float_data = 6;
+  repeated int32 int_data = 7;
 }
 
 message FillerParameter {
@@ -419,6 +420,9 @@ message LstmParameter {
   optional FillerParameter forget_gate_bias_filler = 7; // The filler for the bias
   optional FillerParameter output_gate_weight_filler = 8; // The filler for the weight
   optional FillerParameter output_gate_bias_filler = 9; // The filler for the bias
+  optional float input_gate_cell_weight_filler = 10; // The filler for the cell weight
+  optional float forget_gate_cell_weight_filler = 11; // The filler for the cell weight
+  optional float output_gate_cell_weight_filler = 12; // The filler for the cell weight
 }
 
 // Message that stores parameters used by DataLayer
@@ -448,6 +452,8 @@ message DataParameter {
   // DEPRECATED. See TransformationParameter. Specify if we want to randomly mirror
   // data.
   optional bool mirror = 6 [default = false];
+  optional bool nlp = 100 [default = false];
+  optional uint32 vocab_size = 101;
 }
 
 // Message that stores parameters used by DropoutLayer

@@ -119,11 +119,24 @@ void DataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
     this->prefetch_data_.Reshape(this->layer_param_.data_param().batch_size(),
         datum.channels(), crop_size, crop_size);
   } else {
+    if (this->layer_param_.data_param().nlp()) {
+    (*top)[0]->Reshape(
+          this->layer_param_.data_param().batch_size(),
+          datum.channels() * this->layer_param_.data_param().vocab_size(),
+          1,
+          1);
+    this->prefetch_data_.Reshape(
+          this->layer_param_.data_param().batch_size(),
+          datum.channels() * this->layer_param_.data_param().vocab_size(),
+          1,
+          1);
+    } else {
     (*top)[0]->Reshape(
         this->layer_param_.data_param().batch_size(), datum.channels(),
         datum.height(), datum.width());
     this->prefetch_data_.Reshape(this->layer_param_.data_param().batch_size(),
         datum.channels(), datum.height(), datum.width());
+    }
   }
   LOG(INFO) << "output data size: " << (*top)[0]->num() << ","
       << (*top)[0]->channels() << "," << (*top)[0]->height() << ","
@@ -172,11 +185,25 @@ void DataLayer<Dtype>::InternalThreadEntry() {
     }
 
     // Apply data transformations (mirror, scale, crop...)
-    this->data_transformer_.Transform(item_id, datum, this->mean_, top_data);
+    if (this->layer_param_.data_param().nlp()) {
+      const int channels = datum.channels();
+      const int vocab_size = this->layer_param_.data_param().vocab_size();
+      const int size = channels * vocab_size;
 
-    if (this->output_labels_) {
-      top_label[item_id] = datum.label();
+      for (int j = 0; j < size; ++j) {
+        top_data[j + item_id * size] = 0.0;
+      }
+      for (int j = 0; j < channels; ++j) {
+        top_data[datum.int_data(j) + j * vocab_size + item_id * size] =
+          1.0;
+      }
+    } else {
+      this->data_transformer_.Transform(item_id, datum, this->mean_, top_data);
+      if (this->output_labels_) {
+        top_label[item_id] = datum.label();
+      }
     }
+
 
     // go to the next iter
     switch (this->layer_param_.data_param().backend()) {
