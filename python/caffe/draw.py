@@ -38,8 +38,10 @@ def get_pydot_graph(caffe_net):
       pydot_nodes[name + '_' + layertype] = pydot.Node(
           '%s (%s)' % (name, layertype), **NEURON_LAYER_STYLE)
     else:
+      extra = str(layer)
+      value = '\n'
       pydot_nodes[name + '_' + layertype] = pydot.Node(
-          '%s (%s)' % (name, layertype), **LAYER_STYLE)
+          '\"%s (%s):%s%s\"' % (name, layertype, value, extra.replace('\n', value).replace('"', '\'')), **LAYER_STYLE)
     for bottom_blob in layer.bottom:
       pydot_nodes[bottom_blob + '_blob'] = pydot.Node(
         '%s' % (bottom_blob), **BLOB_STYLE)
