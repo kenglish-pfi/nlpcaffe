@@ -100,7 +100,7 @@ void LstmLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   output_gate_bias_filler->Fill(this->blobs_[7].get());
 
   for (int i = 0; i < channels_; i++) {
-    this->blobs_[2]->mutable_cpu_data()[(i + 1) * (input_data_size + 1) - 1] = 0;
+    this->blobs_[0]->mutable_cpu_data()[(i + 1) * (input_data_size + 1) - 1] = 0;
     this->blobs_[2]->mutable_cpu_data()[(i + 1) * (input_data_size + 1) - 1] = Dtype(this->layer_param_.lstm_param().input_gate_cell_weight_filler());
     this->blobs_[4]->mutable_cpu_data()[(i + 1) * (input_data_size + 1) - 1] = Dtype(this->layer_param_.lstm_param().forget_gate_cell_weight_filler());
     this->blobs_[6]->mutable_cpu_data()[(i + 1) * (input_data_size + 1) - 1] = Dtype(this->layer_param_.lstm_param().output_gate_cell_weight_filler());
