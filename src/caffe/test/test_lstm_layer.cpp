@@ -12,8 +12,8 @@
 #include "caffe/test/test_caffe_main.hpp"
 #include "caffe/test/test_gradient_check_util.hpp"
 
-#define NUM_CELLS 5
-#define BATCH_SIZE 2
+#define NUM_CELLS 2
+#define BATCH_SIZE 5
 
 using std::min;
 using std::max;
@@ -142,22 +142,14 @@ TYPED_TEST(LstmLayerTest, TestGradientAcrossChannels) {
   LayerParameter layer_param;
   LstmParameter* lstm_param = layer_param.mutable_lstm_param();
   lstm_param->set_num_cells(NUM_CELLS);
-  lstm_param->mutable_input_bias_filler()->set_type("constant");
-  lstm_param->mutable_input_bias_filler()->set_value(0.1);
-  lstm_param->mutable_input_gate_bias_filler()->set_type("constant");
-  lstm_param->mutable_input_gate_bias_filler()->set_value(0.1);
-  lstm_param->mutable_forget_gate_bias_filler()->set_type("constant");
-  lstm_param->mutable_forget_gate_bias_filler()->set_value(0.1);
-  lstm_param->mutable_output_gate_bias_filler()->set_type("constant");
-  lstm_param->mutable_output_gate_bias_filler()->set_value(0.1);
-  lstm_param->mutable_input_weight_filler()->set_type("constant");
-  lstm_param->mutable_input_weight_filler()->set_value(0.1);
-  lstm_param->mutable_input_gate_weight_filler()->set_type("constant");
-  lstm_param->mutable_input_gate_weight_filler()->set_value(0.1);
-  lstm_param->mutable_forget_gate_weight_filler()->set_type("constant");
-  lstm_param->mutable_forget_gate_weight_filler()->set_value(0.1);
-  lstm_param->mutable_output_gate_weight_filler()->set_type("constant");
-  lstm_param->mutable_output_gate_weight_filler()->set_value(0.1);
+  lstm_param->mutable_input_bias_filler()->set_type("xavier");
+  lstm_param->mutable_input_gate_bias_filler()->set_type("xavier");
+  lstm_param->mutable_forget_gate_bias_filler()->set_type("xavier");
+  lstm_param->mutable_output_gate_bias_filler()->set_type("xavier");
+  lstm_param->mutable_input_weight_filler()->set_type("xavier");
+  lstm_param->mutable_input_gate_weight_filler()->set_type("xavier");
+  lstm_param->mutable_forget_gate_weight_filler()->set_type("xavier");
+  lstm_param->mutable_output_gate_weight_filler()->set_type("xavier");
 
   LstmLayer<Dtype> layer(layer_param);
   GradientChecker<Dtype> checker(1e-2, 1e-2);
