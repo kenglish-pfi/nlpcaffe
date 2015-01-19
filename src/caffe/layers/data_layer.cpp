@@ -120,8 +120,8 @@ void DataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
         datum.channels(), crop_size, crop_size);
   } else {
     if (this->layer_param_.data_param().nlp()) {
-      const int num_top_values = (datum.channels() - 1) *
-        this->layer_param_.data_param().vocab_size() + 1;
+      const int num_top_values = datum.channels() / 2 *
+        (this->layer_param_.data_param().vocab_size() + 1);
       (*top)[0]->Reshape(
             this->layer_param_.data_param().batch_size(),
             num_top_values,
@@ -190,16 +190,19 @@ void DataLayer<Dtype>::InternalThreadEntry() {
     if (this->layer_param_.data_param().nlp()) {
       const int channels = datum.channels();
       const int vocab_size = this->layer_param_.data_param().vocab_size();
-      const int size = (channels - 1) * vocab_size + 1;
+      const int size = channels / 2 * (vocab_size + 1);
 
       for (int j = 0; j < size; ++j) {
         top_data[j + item_id * size] = 0.0;
       }
-      for (int j = 0; j < channels - 1; ++j) {
-        top_data[datum.int_data(j) + j * vocab_size + item_id * size] =
+      for (int j = 0; j < channels; j += 2) {
+        CHECK_LT(datum.int_data(j), vocab_size);
+        CHECK_LT(datum.int_data(j + 1), vocab_size);
+        top_data[datum.int_data(j) + j/2 * (vocab_size + 1) + item_id * size] =
           1.0;
+        top_data[(j/2 + 1) * (vocab_size + 1) - 1 + item_id * size] =
+          datum.int_data(j + 1);
       }
-      top_data[item_id * size + size - 1] = datum.int_data(channels - 1);
     } else {
       this->data_transformer_.Transform(item_id, datum, this->mean_, top_data);
       if (this->output_labels_) {
