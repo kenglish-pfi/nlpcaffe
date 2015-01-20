@@ -59,6 +59,7 @@ data/*
 *lmdb
 *mdb
 *lock
+*prototxt
 
 # LevelDB files
 *.sst
