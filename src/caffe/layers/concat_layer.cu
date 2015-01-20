@@ -30,6 +30,20 @@ void ConcatLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
       }
       offset_channel += bottom[i]->channels();
     }
+  } else if (concat_dim_ == 2) {
+    int offset_height = 0;
+    for (int i = 0; i < bottom.size(); ++i) {
+      const Dtype* bottom_data = bottom[i]->gpu_data();
+      int num_elem =
+        bottom[i]->height()*bottom[i]->width();
+      for (int n = 0; n < num_; ++n) {
+        for (int c = 0; c < channels_; ++c) {
+          caffe_copy(num_elem, bottom_data+bottom[i]->offset(n, c),
+            top_data + (*top)[0]->offset(n, c, offset_height));
+        }
+      }
+      offset_height += bottom[i]->height();
+    }
   } else {
     LOG(FATAL) << "concat_dim along dim" << concat_dim_ <<
       " not implemented yet";
@@ -64,6 +78,22 @@ void ConcatLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
         }
       }
       offset_channel += blob->channels();
+    }
+  } else if (concat_dim_ == 2) {
+    int offset_width = 0;
+    for (int i = 0; i < bottom->size(); ++i) {
+      Blob<Dtype>* blob = (*bottom)[i];
+      if (propagate_down[i]) {
+        Dtype* bottom_diff = blob->mutable_gpu_diff();
+        int num_elem = blob->height()*blob->width();
+        for (int n = 0; n < num_; ++n) {
+          for (int c = 0; c < channels_; ++c) {
+            caffe_copy(num_elem, top_diff + top[0]->offset(n, c, offset_width),
+                       bottom_diff + blob->offset(n, c));
+          }
+        }
+      }
+      offset_width += blob->width();
     }
   } else {
     LOG(FATAL) << "concat_dim along dim" << concat_dim_ <<

@@ -12,8 +12,8 @@ void ConcatLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   concat_dim_ = this->layer_param_.concat_param().concat_dim();
   CHECK_GE(concat_dim_, 0) <<
     "concat_dim should be >= 0";
-  CHECK_LE(concat_dim_, 1) <<
-    "For now concat_dim <=1, it can only concat num and channels";
+  CHECK_LE(concat_dim_, 2) <<
+    "For now concat_dim <=2, it can only concat num and channels and height";
 }
 
 template <typename Dtype>
@@ -64,7 +64,21 @@ void ConcatLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
           top_data+(*top)[0]->offset(n, offset_channel));
       }
       offset_channel += bottom[i]->channels();
-    }  // concat_dim_ is guaranteed to be 0 or 1 by LayerSetUp.
+    }
+  } else if (concat_dim_ == 2) {
+    int offset_height = 0;
+    for (int i = 0; i < bottom.size(); ++i) {
+      const Dtype* bottom_data = bottom[i]->cpu_data();
+      int num_elem =
+        bottom[i]->height()*bottom[i]->width();
+      for (int n = 0; n < num_; ++n) {
+        for (int c = 0; c < channels_; ++c) {
+          caffe_copy(num_elem, bottom_data+bottom[i]->offset(n, c),
+            top_data + (*top)[0]->offset(n, c, offset_height));
+        }
+      }
+      offset_height += bottom[i]->height();
+    }  // concat_dim_ is guaranteed to be 0 or 1 or 2 by LayerSetUp.
   }
 }
 
@@ -96,6 +110,22 @@ void ConcatLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
         }
       }
       offset_channel += blob->channels();
+    }
+  } else if (concat_dim_ == 2) {
+    int offset_width = 0;
+    for (int i = 0; i < bottom->size(); ++i) {
+      Blob<Dtype>* blob = (*bottom)[i];
+      if (propagate_down[i]) {
+        Dtype* bottom_diff = blob->mutable_cpu_diff();
+        int num_elem = blob->height()*blob->width();
+        for (int n = 0; n < num_; ++n) {
+          for (int c = 0; c < channels_; ++c) {
+            caffe_copy(num_elem, top_diff + top[0]->offset(n, c, offset_width),
+                       bottom_diff + blob->offset(n, c));
+          }
+        }
+      }
+      offset_width += blob->width();
     }
   }  // concat_dim_ is guaranteed to be 0 or 1 by LayerSetUp.
 }

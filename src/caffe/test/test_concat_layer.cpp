@@ -22,6 +22,7 @@ class ConcatLayerTest : public MultiDeviceTest<TypeParam> {
       : blob_bottom_0(new Blob<Dtype>(2, 3, 6, 5)),
         blob_bottom_1(new Blob<Dtype>(2, 5, 6, 5)),
         blob_bottom_2(new Blob<Dtype>(5, 3, 6, 5)),
+        blob_bottom_3(new Blob<Dtype>(2, 3, 7, 5)),
         blob_top_(new Blob<Dtype>()) {}
   virtual void SetUp() {
     // fill the values
@@ -36,23 +37,30 @@ class ConcatLayerTest : public MultiDeviceTest<TypeParam> {
     filler_param.set_value(3.);
     filler.reset(new ConstantFiller<Dtype>(filler_param));
     filler->Fill(this->blob_bottom_2);
+    filler_param.set_value(4.);
+    filler.reset(new ConstantFiller<Dtype>(filler_param));
+    filler->Fill(this->blob_bottom_3);
     blob_bottom_vec_0.push_back(blob_bottom_0);
     blob_bottom_vec_0.push_back(blob_bottom_1);
     blob_bottom_vec_1.push_back(blob_bottom_0);
     blob_bottom_vec_1.push_back(blob_bottom_2);
+    blob_bottom_vec_2.push_back(blob_bottom_0);
+    blob_bottom_vec_2.push_back(blob_bottom_3);
     blob_top_vec_.push_back(blob_top_);
   }
 
   virtual ~ConcatLayerTest() {
     delete blob_bottom_0; delete blob_bottom_1;
-    delete blob_bottom_2; delete blob_top_;
+    delete blob_bottom_2; delete blob_bottom_3; 
+    delete blob_top_;
   }
 
   Blob<Dtype>* const blob_bottom_0;
   Blob<Dtype>* const blob_bottom_1;
   Blob<Dtype>* const blob_bottom_2;
+  Blob<Dtype>* const blob_bottom_3;
   Blob<Dtype>* const blob_top_;
-  vector<Blob<Dtype>*> blob_bottom_vec_0, blob_bottom_vec_1;
+  vector<Blob<Dtype>*> blob_bottom_vec_0, blob_bottom_vec_1, blob_bottom_vec_2;
   vector<Blob<Dtype>*> blob_top_vec_;
 };
 
@@ -80,6 +88,20 @@ TYPED_TEST(ConcatLayerTest, TestSetupChannels) {
   EXPECT_EQ(this->blob_top_->channels(),
     this->blob_bottom_0->channels()+this->blob_bottom_1->channels());
   EXPECT_EQ(this->blob_top_->height(), this->blob_bottom_0->height());
+  EXPECT_EQ(this->blob_top_->width(), this->blob_bottom_0->width());
+}
+
+
+TYPED_TEST(ConcatLayerTest, TestSetupHeight) {
+  typedef typename TypeParam::Dtype Dtype;
+  LayerParameter layer_param;
+  layer_param.mutable_concat_param()->set_concat_dim(2);
+  ConcatLayer<Dtype> layer(layer_param);
+  layer.SetUp(this->blob_bottom_vec_2, &(this->blob_top_vec_));
+  EXPECT_EQ(this->blob_top_->num(), this->blob_bottom_0->num());
+  EXPECT_EQ(this->blob_top_->channels(), this->blob_bottom_0->channels());
+  EXPECT_EQ(this->blob_top_->height(),
+    this->blob_bottom_0->height() + this->blob_bottom_3->height());
   EXPECT_EQ(this->blob_top_->width(), this->blob_bottom_0->width());
 }
 
