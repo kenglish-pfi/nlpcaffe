@@ -92,7 +92,7 @@ __global__ void LstmForward(
   output_gate_mult = cuda_sigmoid(output_gate_mult);
 
   next_state_data[state_offset + i] = prev_state_data[state_offset + i] * forget_gate_mult + input * input_gate_mult;
-  top_data[state_offset + i] = cuda_tanh(next_state_data[state_offset + i]) * output_gate_mult;
+  top_data[state_offset + i] = next_state_data[state_offset + i] * output_gate_mult;
 }
 
 template <typename Dtype>
@@ -145,33 +145,33 @@ __global__ void LstmBackward(
   forget_gate_mult = cuda_sigmoid(forget_gate_mult);
   output_gate_mult = cuda_sigmoid(output_gate_mult);
 
-  const Dtype next_state_tanh = cuda_tanh(next_state_data[state_offset + i]);
-  const Dtype next_state_tot_diff = next_state_diff[state_offset + i] + output_gate_mult * top_diff[state_offset + i] * cuda_tanh_diff(next_state_tanh);
+  const Dtype next_state = next_state_data[state_offset + i];
+  const Dtype next_state_tot_diff = next_state_diff[state_offset + i] + output_gate_mult * top_diff[state_offset + i];
 
   myAtomicAdd(&prev_state_diff[state_offset + i], next_state_tot_diff * forget_gate_mult);
 
   myAtomicAdd(&forget_gate_bias_diff[i], next_state_tot_diff * prev_state_data[state_offset + i] * cuda_sigmoid_diff(forget_gate_mult));
-  myAtomicAdd(&output_gate_bias_diff[i], top_diff[state_offset + i] * next_state_tanh * cuda_sigmoid_diff(output_gate_mult));
+  myAtomicAdd(&output_gate_bias_diff[i], top_diff[state_offset + i] * next_state * cuda_sigmoid_diff(output_gate_mult));
   myAtomicAdd(&input_gate_bias_diff[i], next_state_tot_diff * input * cuda_sigmoid_diff(input_gate_mult));
   myAtomicAdd(&input_bias_diff[i], next_state_tot_diff * input_gate_mult * cuda_tanh_diff(input));
 
   myAtomicAdd(&input_gate_weight_diff[cid], cuda_sigmoid_diff(input_gate_mult) * next_state_tot_diff * input * prev_state_data[state_offset + i]);
   myAtomicAdd(&forget_gate_weight_diff[cid], cuda_sigmoid_diff(forget_gate_mult) * prev_state_data[state_offset + i] * next_state_tot_diff * prev_state_data[state_offset + i]);
-  myAtomicAdd(&output_gate_weight_diff[cid], cuda_sigmoid_diff(output_gate_mult) * top_diff[state_offset + i] * next_state_tanh * prev_state_data[state_offset + i]);
+  myAtomicAdd(&output_gate_weight_diff[cid], cuda_sigmoid_diff(output_gate_mult) * top_diff[state_offset + i] * next_state * prev_state_data[state_offset + i]);
   myAtomicAdd(&prev_state_diff[state_offset + i], cuda_sigmoid_diff(input_gate_mult) * next_state_tot_diff * input * input_gate_weight[cid]);
   myAtomicAdd(&prev_state_diff[state_offset + i], cuda_sigmoid_diff(forget_gate_mult) * next_state_tot_diff * prev_state_data[state_offset + i] * forget_gate_weight[cid]);
-  myAtomicAdd(&prev_state_diff[state_offset + i], cuda_sigmoid_diff(output_gate_mult) * top_diff[state_offset + i] * next_state_tanh * output_gate_weight[cid]);
+  myAtomicAdd(&prev_state_diff[state_offset + i], cuda_sigmoid_diff(output_gate_mult) * top_diff[state_offset + i] * next_state * output_gate_weight[cid]);
 
   for (int k = 0; k < input_data_size; k++) {
     const int wid = k + i * (input_data_size + 1);
     myAtomicAdd(&input_weight_diff[wid], cuda_tanh_diff(input) * next_state_tot_diff * input_gate_mult * input_data[input_offset + k]);
     myAtomicAdd(&input_gate_weight_diff[wid], cuda_sigmoid_diff(input_gate_mult) * next_state_tot_diff * input * input_data[input_offset + k]);
     myAtomicAdd(&forget_gate_weight_diff[wid], cuda_sigmoid_diff(forget_gate_mult) * prev_state_data[state_offset + i] * next_state_tot_diff * input_data[input_offset + k]);
-    myAtomicAdd(&output_gate_weight_diff[wid], cuda_sigmoid_diff(output_gate_mult) * top_diff[state_offset + i] * next_state_tanh * input_data[input_offset + k]);
+    myAtomicAdd(&output_gate_weight_diff[wid], cuda_sigmoid_diff(output_gate_mult) * top_diff[state_offset + i] * next_state * input_data[input_offset + k]);
     myAtomicAdd(&input_diff[input_offset + k], cuda_tanh_diff(input) * next_state_tot_diff * input_gate_mult * input_weight[wid]);
     myAtomicAdd(&input_diff[input_offset + k], cuda_sigmoid_diff(input_gate_mult) * next_state_tot_diff * input * input_gate_weight[wid]);
     myAtomicAdd(&input_diff[input_offset + k], cuda_sigmoid_diff(forget_gate_mult) * next_state_tot_diff * prev_state_data[state_offset + i] * forget_gate_weight[wid]);
-    myAtomicAdd(&input_diff[input_offset + k], cuda_sigmoid_diff(output_gate_mult) * top_diff[state_offset + i] * next_state_tanh * output_gate_weight[wid]);
+    myAtomicAdd(&input_diff[input_offset + k], cuda_sigmoid_diff(output_gate_mult) * top_diff[state_offset + i] * next_state * output_gate_weight[wid]);
   }
 }
 

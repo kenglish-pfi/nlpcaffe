@@ -165,7 +165,7 @@ void LstmLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       output_gate_mult = sigmoid(output_gate_mult);
 
       next_state_data[state_offset + i] = prev_state_data[state_offset + i] * forget_gate_mult + input * input_gate_mult;
-      top_data[state_offset + i] = tanh(next_state_data[state_offset + i]) * output_gate_mult;
+      top_data[state_offset + i] = next_state_data[state_offset + i] * output_gate_mult;
     }
   }
 }
@@ -229,33 +229,33 @@ void LstmLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
       forget_gate_mult = sigmoid(forget_gate_mult);
       output_gate_mult = sigmoid(output_gate_mult);
 
-      const Dtype next_state_tanh = tanh(next_state_data[state_offset + i]);
-      const Dtype next_state_tot_diff = next_state_diff[state_offset + i] + output_gate_mult * top_diff[state_offset + i] * tanh_diff(next_state_tanh);
+      const Dtype next_state = next_state_data[state_offset + i];
+      const Dtype next_state_tot_diff = next_state_diff[state_offset + i] + output_gate_mult * top_diff[state_offset + i];
 
       prev_state_diff[state_offset + i] += next_state_tot_diff * forget_gate_mult;
 
       forget_gate_bias_diff[i] += next_state_tot_diff * prev_state_data[state_offset + i] * sigmoid_diff(forget_gate_mult);
-      output_gate_bias_diff[i] += top_diff[state_offset + i] * next_state_tanh * sigmoid_diff(output_gate_mult);
+      output_gate_bias_diff[i] += top_diff[state_offset + i] * next_state * sigmoid_diff(output_gate_mult);
       input_gate_bias_diff[i] += next_state_tot_diff * input * sigmoid_diff(input_gate_mult);
       input_bias_diff[i] += next_state_tot_diff * input_gate_mult * tanh_diff(input);
 
       input_gate_weight_diff[cid] += sigmoid_diff(input_gate_mult) * next_state_tot_diff * input * prev_state_data[state_offset + i];
       forget_gate_weight_diff[cid] += sigmoid_diff(forget_gate_mult) * prev_state_data[state_offset + i] * next_state_tot_diff * prev_state_data[state_offset + i];
-      output_gate_weight_diff[cid] += sigmoid_diff(output_gate_mult) * top_diff[state_offset + i] * next_state_tanh * prev_state_data[state_offset + i];
+      output_gate_weight_diff[cid] += sigmoid_diff(output_gate_mult) * top_diff[state_offset + i] * next_state * prev_state_data[state_offset + i];
       prev_state_diff[state_offset + i] += sigmoid_diff(input_gate_mult) * next_state_tot_diff * input * input_gate_weight[cid];
       prev_state_diff[state_offset + i] += sigmoid_diff(forget_gate_mult) * next_state_tot_diff * prev_state_data[state_offset + i] * forget_gate_weight[cid];
-      prev_state_diff[state_offset + i] += sigmoid_diff(output_gate_mult) * top_diff[state_offset + i] * next_state_tanh * output_gate_weight[cid];
+      prev_state_diff[state_offset + i] += sigmoid_diff(output_gate_mult) * top_diff[state_offset + i] * next_state * output_gate_weight[cid];
 
       for (int k = 0; k < input_data_size; k++) {
         const int wid = k + i * (input_data_size + 1);
         input_weight_diff[wid] += tanh_diff(input) * next_state_tot_diff * input_gate_mult * input_data[input_offset + k];
         input_gate_weight_diff[wid] += sigmoid_diff(input_gate_mult) * next_state_tot_diff * input * input_data[input_offset + k];
         forget_gate_weight_diff[wid] += sigmoid_diff(forget_gate_mult) * prev_state_data[state_offset + i] * next_state_tot_diff * input_data[input_offset + k];
-        output_gate_weight_diff[wid] += sigmoid_diff(output_gate_mult) * top_diff[state_offset + i] * next_state_tanh * input_data[input_offset + k];
+        output_gate_weight_diff[wid] += sigmoid_diff(output_gate_mult) * top_diff[state_offset + i] * next_state * input_data[input_offset + k];
         input_diff[input_offset + k] += tanh_diff(input) * next_state_tot_diff * input_gate_mult * input_weight[wid];
         input_diff[input_offset + k] += sigmoid_diff(input_gate_mult) * next_state_tot_diff * input * input_gate_weight[wid];
         input_diff[input_offset + k] += sigmoid_diff(forget_gate_mult) * next_state_tot_diff * prev_state_data[state_offset + i] * forget_gate_weight[wid];
-        input_diff[input_offset + k] += sigmoid_diff(output_gate_mult) * top_diff[state_offset + i] * next_state_tanh * output_gate_weight[wid];
+        input_diff[input_offset + k] += sigmoid_diff(output_gate_mult) * top_diff[state_offset + i] * next_state * output_gate_weight[wid];
       }
     }
   }
