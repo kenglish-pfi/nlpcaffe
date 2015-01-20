@@ -123,53 +123,60 @@ def get_net(deploy, batch_size):
         conv_layer.convolution_param.weight_filler.type = 'xavier'
         conv_layer.param.append('conv_param')
 
-        concat_layer = net.layers.add()
-        concat_layer.name = 'concat_layer%d' % i
-        concat_layer.top.append(concat_layer.name)
-        concat_layer.type = LayerParameter.CONCAT
-        concat_layer.bottom.append('conv%d' % i)
-        if i == 0:
-            concat_layer.bottom.append(dummy_layer.name)
-        else:
-            concat_layer.bottom.append('lstm_layer%d' % (i - 1))
+        concat_layer0 = net.layers.add()
+        concat_layer0.name = 'concat0_layer%d' % i
+        lstm_layer0 = net.layers.add()
+        lstm_layer0.name = 'lstm0_layer%d' % i
 
-        alpha = 0.0
-        lstm_layer = net.layers.add()
-        lstm_layer.name = 'lstm_layer%d' % i
-        lstm_layer.type = LayerParameter.LSTM
-        lstm_layer.lstm_param.num_cells = lstm_num_cells
+        concat_layer1 = net.layers.add()
+        concat_layer1.name = 'concat1_layer%d' % i
+        lstm_layer1 = net.layers.add()
+        lstm_layer1.name = 'lstm1_layer%d' % i
+        for j, (concat_layer, lstm_layer) in enumerate([(concat_layer0, lstm_layer0), (concat_layer1, lstm_layer1)]):
+            concat_layer.top.append(concat_layer.name)
+            concat_layer.type = LayerParameter.CONCAT
+            concat_layer.bottom.append('conv%d' % i)
+            if j == 1:
+                concat_layer.bottom.append('lstm0_layer%d' % i)
+            if i == 0:
+                concat_layer.bottom.append(dummy_layer.name)
+            else:
+                concat_layer.bottom.append('lstm%d_layer%d' % (j, i - 1))
 
-        lstm_layer.lstm_param.input_bias_filler.type = "constant"
-        lstm_layer.lstm_param.input_bias_filler.value = alpha
-        lstm_layer.lstm_param.input_gate_bias_filler.type = "constant"
-        lstm_layer.lstm_param.input_gate_bias_filler.value = alpha
-        lstm_layer.lstm_param.forget_gate_bias_filler.type = "constant"
-        lstm_layer.lstm_param.forget_gate_bias_filler.value = alpha
-        lstm_layer.lstm_param.output_gate_bias_filler.type = "constant"
-        lstm_layer.lstm_param.output_gate_bias_filler.value = alpha
+            lstm_layer.type = LayerParameter.LSTM
+            lstm_layer.lstm_param.num_cells = lstm_num_cells
 
-        lstm_layer.lstm_param.input_weight_filler.type = "xavier"
-        lstm_layer.lstm_param.input_gate_weight_filler.type = "xavier"
-        lstm_layer.lstm_param.forget_gate_weight_filler.type = "xavier"
-        lstm_layer.lstm_param.output_gate_weight_filler.type = "xavier"
+            lstm_layer.lstm_param.input_bias_filler.type = "constant"
+            lstm_layer.lstm_param.input_bias_filler.value = 0.0
+            lstm_layer.lstm_param.input_gate_bias_filler.type = "constant"
+            lstm_layer.lstm_param.input_gate_bias_filler.value = 0.0
+            lstm_layer.lstm_param.forget_gate_bias_filler.type = "constant"
+            lstm_layer.lstm_param.forget_gate_bias_filler.value = 0.0
+            lstm_layer.lstm_param.output_gate_bias_filler.type = "constant"
+            lstm_layer.lstm_param.output_gate_bias_filler.value = 0.0
 
-        lstm_layer.lstm_param.input_gate_cell_weight_filler = 0
-        lstm_layer.lstm_param.output_gate_cell_weight_filler = 0
-        lstm_layer.lstm_param.forget_gate_cell_weight_filler = 0
-        for j in range(8):
-            lstm_layer.param.append('lstm_param%d' % j)
-        lstm_layer.top.append('lstm_layer%d' % i)
-        lstm_layer.top.append('lstm_mem_cell%d' % i)
-        lstm_layer.bottom.append('concat_layer%d' % i)
-        if i == 0:
-            lstm_layer.bottom.append('dummy_mem_cell')
-        else:
-            lstm_layer.bottom.append('lstm_mem_cell%d' % (i - 1))
+            lstm_layer.lstm_param.input_weight_filler.type = "xavier"
+            lstm_layer.lstm_param.input_gate_weight_filler.type = "xavier"
+            lstm_layer.lstm_param.forget_gate_weight_filler.type = "xavier"
+            lstm_layer.lstm_param.output_gate_weight_filler.type = "xavier"
+
+            lstm_layer.lstm_param.input_gate_cell_weight_filler = 0
+            lstm_layer.lstm_param.output_gate_cell_weight_filler = 0
+            lstm_layer.lstm_param.forget_gate_cell_weight_filler = 0
+            for k in range(8):
+                lstm_layer.param.append('lstm%d_param%d' % (j, k))
+            lstm_layer.top.append('lstm%d_layer%d' % (j, i))
+            lstm_layer.top.append('lstm%d_mem_cell%d' % (j, i))
+            lstm_layer.bottom.append('concat%d_layer%d' % (j, i))
+            if i == 0:
+                lstm_layer.bottom.append('dummy_mem_cell')
+            else:
+                lstm_layer.bottom.append('lstm%d_mem_cell%d' % (j, i - 1))
 
         inner_product_layer = net.layers.add()
         inner_product_layer.name = "inner_product%d" % i
         inner_product_layer.top.append(inner_product_layer.name)
-        inner_product_layer.bottom.append('lstm_layer%d' % i)
+        inner_product_layer.bottom.append('lstm1_layer%d' % i)
         inner_product_layer.type = LayerParameter.INNER_PRODUCT
         inner_product_layer.blobs_lr.append(1)
         inner_product_layer.blobs_lr.append(2)
@@ -202,7 +209,8 @@ def get_net(deploy, batch_size):
             silence_layer = net.layers.add()
             silence_layer.name = "silence%d" % i
             silence_layer.type = LayerParameter.SILENCE
-            silence_layer.bottom.append("lstm_mem_cell%d" % i)
+            silence_layer.bottom.append("lstm0_mem_cell%d" % i)
+            silence_layer.bottom.append("lstm1_mem_cell%d" % i)
     return net
 
 def main():
