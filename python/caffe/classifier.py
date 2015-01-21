@@ -92,3 +92,6 @@ class Classifier(caffe.Net):
             predictions = predictions.mean(1)
 
         return predictions
+    
+    def rff(self, inputs):
+        out = self.forward_all(**{self.inputs[0]: inputs})
