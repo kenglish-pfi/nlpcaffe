@@ -51,6 +51,11 @@ def make_data():
                 key = str(i)
                 txn.put(key, datum.SerializeToString())
 
+def add_weight_filler(param):
+    param.type = 'uniform'
+    param.min = -0.1
+    param.max = 0.1
+
 def get_net(deploy, batch_size):
     net = NetParameter()
     lstm_num_cells = 250
@@ -120,7 +125,7 @@ def get_net(deploy, batch_size):
         conv_layer.convolution_param.num_output = 200
         conv_layer.convolution_param.kernel_size = 1
         conv_layer.convolution_param.bias_term = False
-        conv_layer.convolution_param.weight_filler.type = 'xavier'
+        add_weight_filler(conv_layer.convolution_param.weight_filler)
         conv_layer.param.append('conv_param')
 
         concat_layer0 = net.layers.add()
@@ -128,11 +133,7 @@ def get_net(deploy, batch_size):
         lstm_layer0 = net.layers.add()
         lstm_layer0.name = 'lstm0_layer%d' % i
 
-        concat_layer1 = net.layers.add()
-        concat_layer1.name = 'concat1_layer%d' % i
-        lstm_layer1 = net.layers.add()
-        lstm_layer1.name = 'lstm1_layer%d' % i
-        for j, (concat_layer, lstm_layer) in enumerate([(concat_layer0, lstm_layer0), (concat_layer1, lstm_layer1)]):
+        for j, (concat_layer, lstm_layer) in enumerate([(concat_layer0, lstm_layer0)]):
             concat_layer.top.append(concat_layer.name)
             concat_layer.type = LayerParameter.CONCAT
             concat_layer.bottom.append('conv%d' % i)
@@ -155,16 +156,17 @@ def get_net(deploy, batch_size):
             lstm_layer.lstm_param.output_gate_bias_filler.type = "constant"
             lstm_layer.lstm_param.output_gate_bias_filler.value = 0.0
 
-            lstm_layer.lstm_param.input_weight_filler.type = "xavier"
-            lstm_layer.lstm_param.input_gate_weight_filler.type = "xavier"
-            lstm_layer.lstm_param.forget_gate_weight_filler.type = "xavier"
-            lstm_layer.lstm_param.output_gate_weight_filler.type = "xavier"
+            add_weight_filler(lstm_layer.lstm_param.input_weight_filler)
+            add_weight_filler(lstm_layer.lstm_param.input_gate_weight_filler)
+            add_weight_filler(lstm_layer.lstm_param.forget_gate_weight_filler)
+            add_weight_filler(lstm_layer.lstm_param.output_gate_weight_filler)
 
             lstm_layer.lstm_param.input_gate_cell_weight_filler = 0
             lstm_layer.lstm_param.output_gate_cell_weight_filler = 0
             lstm_layer.lstm_param.forget_gate_cell_weight_filler = 0
             for k in range(8):
                 lstm_layer.param.append('lstm%d_param%d' % (j, k))
+                lstm_layer.blobs_lr.append(1 if (k % 2) == 0 else 0)
             lstm_layer.top.append('lstm%d_layer%d' % (j, i))
             lstm_layer.top.append('lstm%d_mem_cell%d' % (j, i))
             lstm_layer.bottom.append('concat%d_layer%d' % (j, i))
@@ -176,14 +178,14 @@ def get_net(deploy, batch_size):
         inner_product_layer = net.layers.add()
         inner_product_layer.name = "inner_product%d" % i
         inner_product_layer.top.append(inner_product_layer.name)
-        inner_product_layer.bottom.append('lstm1_layer%d' % i)
+        inner_product_layer.bottom.append('lstm0_layer%d' % i)
         inner_product_layer.type = LayerParameter.INNER_PRODUCT
         inner_product_layer.blobs_lr.append(1)
-        inner_product_layer.blobs_lr.append(2)
+        inner_product_layer.blobs_lr.append(0)
         inner_product_layer.weight_decay.append(1)
         inner_product_layer.weight_decay.append(0)
         inner_product_layer.inner_product_param.num_output = vocab_size
-        inner_product_layer.inner_product_param.weight_filler.type = "xavier"
+        add_weight_filler(inner_product_layer.inner_product_param.weight_filler)
         inner_product_layer.inner_product_param.bias_filler.type = "constant"
         inner_product_layer.inner_product_param.bias_filler.value = 0.0
         inner_product_layer.param.append('inner_product_weight')
@@ -210,7 +212,6 @@ def get_net(deploy, batch_size):
             silence_layer.name = "silence%d" % i
             silence_layer.type = LayerParameter.SILENCE
             silence_layer.bottom.append("lstm0_mem_cell%d" % i)
-            silence_layer.bottom.append("lstm1_mem_cell%d" % i)
     return net
 
 def main():
