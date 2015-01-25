@@ -1,5 +1,6 @@
 # The makefile for caffe. Pretty hacky.
 PROJECT := caffe
+CUSTOM_CXX := /usr/bin/mpic++
 
 CONFIG_FILE := Makefile.config
 include $(CONFIG_FILE)

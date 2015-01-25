@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <string>
 #include <vector>
+#include <mpi.h>
 
 #include "caffe/net.hpp"
 #include "caffe/proto/caffe.pb.h"
@@ -10,6 +11,7 @@
 #include "caffe/util/io.hpp"
 #include "caffe/util/math_functions.hpp"
 #include "caffe/util/upgrade_proto.hpp"
+
 
 namespace caffe {
 
@@ -321,26 +323,30 @@ void Solver<Dtype>::Test(const int test_net_id) {
 
 template <typename Dtype>
 void Solver<Dtype>::Snapshot() {
-  NetParameter net_param;
-  // For intermediate results, we will also dump the gradient values.
-  net_->ToProto(&net_param, param_.snapshot_diff());
-  string filename(param_.snapshot_prefix());
-  string model_filename, snapshot_filename;
-  const int kBufferSize = 20;
-  char iter_str_buffer[kBufferSize];
-  snprintf(iter_str_buffer, kBufferSize, "_iter_%d", iter_);
-  filename += iter_str_buffer;
-  model_filename = filename + ".caffemodel";
-  LOG(INFO) << "Snapshotting to " << model_filename;
-  WriteProtoToBinaryFile(net_param, model_filename.c_str());
-  SolverState state;
-  SnapshotSolverState(&state);
-  state.set_iter(iter_);
-  state.set_learned_net(model_filename);
-  state.set_current_step(current_step_);
-  snapshot_filename = filename + ".solverstate";
-  LOG(INFO) << "Snapshotting solver state to " << snapshot_filename;
-  WriteProtoToBinaryFile(state, snapshot_filename.c_str());
+  int world_rank = 0;
+  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+  if (world_rank == 0) {
+    NetParameter net_param;
+    // For intermediate results, we will also dump the gradient values.
+    net_->ToProto(&net_param, param_.snapshot_diff());
+    string filename(param_.snapshot_prefix());
+    string model_filename, snapshot_filename;
+    const int kBufferSize = 20;
+    char iter_str_buffer[kBufferSize];
+    snprintf(iter_str_buffer, kBufferSize, "_iter_%d", iter_);
+    filename += iter_str_buffer;
+    model_filename = filename + ".caffemodel";
+    LOG(INFO) << "Snapshotting to " << model_filename;
+    WriteProtoToBinaryFile(net_param, model_filename.c_str());
+    SolverState state;
+    SnapshotSolverState(&state);
+    state.set_iter(iter_);
+    state.set_learned_net(model_filename);
+    state.set_current_step(current_step_);
+    snapshot_filename = filename + ".solverstate";
+    LOG(INFO) << "Snapshotting solver state to " << snapshot_filename;
+    WriteProtoToBinaryFile(state, snapshot_filename.c_str());
+  }
 }
 
 template <typename Dtype>
@@ -447,6 +453,32 @@ void SGDSolver<Dtype>::ComputeUpdateValue() {
   Dtype momentum = this->param_.momentum();
   Dtype weight_decay = this->param_.weight_decay();
   string regularization_type = this->param_.regularization_type();
+
+  int world_rank = 0;
+  int world_size = 0;
+  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
+#ifndef CPU_ONLY
+  vector<int>& param_owners = this->net_->param_owners_;
+  for (int param_id = 0; param_id < net_params.size(); ++param_id) {
+    if (param_owners[param_id] >= 0 && param_owners[param_id] != param_id) {
+      continue;
+    }
+    if (sizeof(Dtype) == sizeof(float)) {
+      MPI_Allreduce(MPI_IN_PLACE, net_params[param_id]->mutable_cpu_diff(), net_params[param_id]->count(), MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+    } else {
+      MPI_Allreduce(MPI_IN_PLACE, net_params[param_id]->mutable_cpu_diff(), net_params[param_id]->count(), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    }
+  }
+  for (int param_id = 0; param_id < net_params.size(); ++param_id) {
+    if (param_owners[param_id] >= 0 && param_owners[param_id] != param_id) {
+      caffe_copy(net_params[param_owners[param_id]]->count(), net_params[param_owners[param_id]]->gpu_data(),
+        net_params[param_id]->mutable_gpu_data());
+    }
+  }
+#endif
+
   switch (Caffe::mode()) {
   case Caffe::CPU:
     for (int param_id = 0; param_id < net_params.size(); ++param_id) {
@@ -510,7 +542,7 @@ void SGDSolver<Dtype>::ComputeUpdateValue() {
         }
       }
 
-      caffe_gpu_axpby(net_params[param_id]->count(), local_rate,
+      caffe_gpu_axpby(net_params[param_id]->count(), local_rate / world_size,
                 net_params[param_id]->gpu_diff(), momentum,
                 history_[param_id]->mutable_gpu_data());
       // copy

@@ -12,6 +12,8 @@
 #include "caffe/util/math_functions.hpp"
 #include "caffe/util/rng.hpp"
 
+#include <mpi.h>
+
 namespace caffe {
 
 template <typename Dtype>
@@ -75,8 +77,12 @@ void DataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
   // Check if we would need to randomly skip a few data points
   if (this->layer_param_.data_param().rand_skip()) {
-    unsigned int skip = caffe_rng_rand() %
-                        this->layer_param_.data_param().rand_skip();
+    int world_rank = 0;
+    int world_size = 0;
+    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
+    unsigned int skip = (this->layer_param_.data_param().rand_skip() * world_rank) / world_size;
     LOG(INFO) << "Skipping first " << skip << " data points.";
     while (skip-- > 0) {
       switch (this->layer_param_.data_param().backend()) {

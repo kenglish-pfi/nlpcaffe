@@ -204,7 +204,9 @@ class Net {
   /// Vector of weight in the loss (or objective) function of each net blob,
   /// indexed by blob_id.
   vector<Dtype> blob_loss_weights_;
+ public:
   vector<int> param_owners_;
+ protected:
   vector<string> param_display_names_;
   vector<pair<int, int> > param_layer_indices_;
   map<string, int> param_names_index_;

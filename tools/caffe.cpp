@@ -4,6 +4,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <mpi.h>
 
 #include "caffe/caffe.hpp"
 
@@ -91,7 +92,10 @@ int train() {
   // in the solver prototxt.
   if (FLAGS_gpu < 0
       && solver_param.solver_mode() == caffe::SolverParameter_SolverMode_GPU) {
-    FLAGS_gpu = solver_param.device_id();
+    //FLAGS_gpu = solver_param.device_id();
+    int world_rank = 0;
+    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+    FLAGS_gpu = world_rank + 1;
   }
 
   // Set device id and mode
@@ -278,10 +282,12 @@ int main(int argc, char** argv) {
       "  device_query    show GPU diagnostic information\n"
       "  time            benchmark model execution time");
   // Run tool or show usage.
+  MPI_Init(NULL, NULL);
   caffe::GlobalInit(&argc, &argv);
   if (argc == 2) {
     return GetBrewFunction(caffe::string(argv[1]))();
   } else {
     gflags::ShowUsageWithFlagsRestrict(argv[0], "tools/caffe");
   }
+  MPI_Finalize();
 }

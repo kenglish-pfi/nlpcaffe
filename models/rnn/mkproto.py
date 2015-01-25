@@ -11,6 +11,7 @@ import subprocess
 n = 30
 # vocab_size = 101306
 vocab_size = 10003
+rand_skip = 30000
 
 
 
@@ -30,6 +31,7 @@ def make_data():
             for line in f.readlines():
                 allX.append([int(x) for x in line.split(',')])
         random.shuffle(allX)
+        assert phase != 'train' or len(allX) > rand_skip
 
         def vocab_transform(x):
             return x if x < unknown_symbol else unknown_symbol
@@ -70,6 +72,7 @@ def get_net(deploy, batch_size):
         train_data.data_param.batch_size = batch_size
         train_data.data_param.vocab_size = vocab_size
         train_data.data_param.nlp = True
+        train_data.data_param.rand_skip = rand_skip
         train_data_rule = train_data.include.add()
         train_data_rule.phase = caffe_pb2.TRAIN
 
@@ -82,6 +85,7 @@ def get_net(deploy, batch_size):
         valid_data.data_param.batch_size = batch_size
         valid_data.data_param.vocab_size = vocab_size
         valid_data.data_param.nlp = True
+        valid_data.data_param.rand_skip = 0
         valid_data_rule = valid_data.include.add()
         valid_data_rule.phase = caffe_pb2.TEST
 
