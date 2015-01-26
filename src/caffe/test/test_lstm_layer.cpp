@@ -12,7 +12,7 @@
 #include "caffe/test/test_caffe_main.hpp"
 #include "caffe/test/test_gradient_check_util.hpp"
 
-#define NUM_CELLS 2
+#define NUM_CELLS 3
 #define BATCH_SIZE 5
 
 using std::min;
@@ -33,7 +33,7 @@ class LstmLayerTest : public MultiDeviceTest<TypeParam> {
         blob_top2_(new Blob<Dtype>()) {}
   virtual void SetUp() {
     Caffe::set_random_seed(1601);
-    blob_bottom_->Reshape(BATCH_SIZE, 2, 1, 1);
+    blob_bottom_->Reshape(BATCH_SIZE, NUM_CELLS, 1, 1);
     blob_bottom2_->Reshape(BATCH_SIZE, NUM_CELLS, 1, 1);
     // fill the values
     FillerParameter filler_param;
