@@ -44,7 +44,7 @@ __device__ Dtype cuda_sigmoid_diff(Dtype x) {
 template <typename Dtype>
 __device__ Dtype cuda_tanh(Dtype x) {
   Dtype exp2x = exp(2 * x);
-  return (exp2x - Dtype(1)) / (exp2x + Dtype(1));
+  return abs(x) < Dtype(5) ? ((exp2x - Dtype(1)) / (exp2x + Dtype(1))) : (x > 0 ? Dtype(1) : Dtype(-1));
 }
 
 template <typename Dtype>
@@ -281,6 +281,25 @@ void LstmLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
       channels_);
 
   CUDA_POST_KERNEL_CHECK;
+
+
+//   Dtype max_input_diff = Dtype(0.0);
+//   Dtype max_prev_diff = Dtype(0.0);
+//   for (int n = 0; n < num_; ++n) {
+//     for (int k = 0; k < input_data_size; ++k) {
+//       Dtype* input_diff_cpu = (*bottom)[0]->mutable_cpu_diff();
+//       input_diff_cpu[k + n * input_data_size] = std::max(Dtype(-0.001), std::min(Dtype(0.001), input_diff_cpu[k + n * input_data_size]));
+//       /*max_input_diff = std::max(max_input_diff, input_diff_cpu[k]);*/
+//     }
+
+//     for (int k = 0; k < channels_; ++k) {
+//       Dtype* prev_state_diff_cpu = (*bottom)[1]->mutable_cpu_diff();
+//       prev_state_diff_cpu[k + n * channels_] = std::max(Dtype(-0.001), std::min(Dtype(0.001), prev_state_diff_cpu[k + n * channels_]));
+//       /*max_prev_diff = std::max(max_prev_diff, prev_state_diff_cpu[k]);*/
+//     }
+//   }
+//   // std::cout << "input_diff: " << max_input_diff << "\n";
+//   /*std::cout << "prev_state_diff: " << max_prev_diff << "\n";*/
 }
 
 INSTANTIATE_CLASS(LstmLayer);

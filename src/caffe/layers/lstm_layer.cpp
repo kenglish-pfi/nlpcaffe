@@ -18,7 +18,7 @@ inline Dtype sigmoid_diff(Dtype x) {
 template <typename Dtype>
 inline Dtype tanh(Dtype x) {
   Dtype exp2x = exp(2 * x);
-  return (exp2x - Dtype(1)) / (exp2x + Dtype(1));
+  return abs(x) < Dtype(5) ? ((exp2x - Dtype(1)) / (exp2x + Dtype(1))) : (x > 0 ? Dtype(1) : Dtype(-1));
 }
 
 template <typename Dtype>
