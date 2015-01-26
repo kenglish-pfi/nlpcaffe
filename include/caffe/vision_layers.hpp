@@ -376,6 +376,10 @@ class LstmLayer : public Layer<Dtype> {
 
   int channels_;  // num memory cells;
   int num_;  // batch size;
+  int M_;
+  int N_;
+  int K_;
+  Blob<Dtype> gates_buffer_;
 };
 
 }  // namespace caffe
