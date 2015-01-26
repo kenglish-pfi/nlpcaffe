@@ -9,7 +9,6 @@ from caffe_pb2 import Datum
 import subprocess
 
 n = 30
-# vocab_size = 101306
 vocab_size = 10003
 rand_skip = 30000
 
@@ -53,6 +52,16 @@ def make_data():
                 key = str(i)
                 txn.put(key, datum.SerializeToString())
 
+def display_layer(name):
+    layer = net.layers.add()
+    layer.name = 'display_%s' % name
+    layer.top.append('display_%s' % name)
+    layer.bottom.append(name)
+    layer.bottom.append(name)
+    layer.type = LayerParameter.ELTWISE
+    layer.eltwise_param.coeff.append(0.5)
+    layer.eltwise_param.coeff.append(0.5)
+
 def add_weight_filler(param):
     param.type = 'uniform'
     param.min = -0.1
@@ -61,6 +70,7 @@ def add_weight_filler(param):
 def get_net(deploy, batch_size):
     net = NetParameter()
     lstm_num_cells = 250
+    wordvec_length = 200
 
     if not deploy:
         train_data = net.layers.add()
@@ -126,7 +136,7 @@ def get_net(deploy, batch_size):
         conv_layer.top.append(conv_layer.name)
         conv_layer.type = LayerParameter.CONVOLUTION
         conv_layer.bottom.append('input%d' % i)
-        conv_layer.convolution_param.num_output = 200
+        conv_layer.convolution_param.num_output = wordvec_length
         conv_layer.convolution_param.kernel_size = 1
         conv_layer.convolution_param.bias_term = False
         add_weight_filler(conv_layer.convolution_param.weight_filler)
@@ -216,11 +226,12 @@ def get_net(deploy, batch_size):
             silence_layer.name = "silence%d" % i
             silence_layer.type = LayerParameter.SILENCE
             silence_layer.bottom.append("lstm0_mem_cell%d" % i)
+
     return net
 
 def main():
-    if '--make_data' in sys.argv:
-        make_data()
+    #if '--make_data' in sys.argv:
+    make_data()
 
     with open('./models/rnn/train_val.prototxt', 'w') as f:
         f.write('name: "RussellNet"\n')
