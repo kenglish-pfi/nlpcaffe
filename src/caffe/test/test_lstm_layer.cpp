@@ -13,7 +13,7 @@
 #include "caffe/test/test_gradient_check_util.hpp"
 
 #define NUM_CELLS 3
-#define BATCH_SIZE 5
+#define BATCH_SIZE 4
 
 using std::min;
 using std::max;
@@ -68,27 +68,6 @@ void LstmLayerTest<TypeParam>::ReferenceLstmForward(
       blob_bottom.height(), blob_bottom.width());
   Dtype* top_data = blob_top->mutable_cpu_data();
   LstmParameter lstm_param = layer_param.lstm_param();
-  //Dtype alpha = lstm_param.alpha();
-  //Dtype beta = lstm_param.beta();
-  //int size = lstm_param.local_size();
-  for (int n = 0; n < blob_bottom.num(); ++n) {
-    for (int c = 0; c < blob_bottom.channels(); ++c) {
-      for (int h = 0; h < blob_bottom.height(); ++h) {
-        for (int w = 0; w < blob_bottom.width(); ++w) {
-          //int c_start = c - (size - 1) / 2;
-          //int c_end = min(c_start + size, blob_bottom.channels());
-          //c_start = max(c_start, 0);
-          //Dtype scale = 1.;
-          //for (int i = c_start; i < c_end; ++i) {
-            //Dtype value = blob_bottom.data_at(n, i, h, w);
-            //scale += value * value * alpha / size;
-          //}
-          //*(top_data + blob_top->offset(n, c, h, w)) =
-            //blob_bottom.data_at(n, c, h, w) / pow(scale, beta);
-        }
-      }
-    }
-  }
 }
 
 TYPED_TEST_CASE(LstmLayerTest, TestDtypesAndDevices);
