@@ -461,6 +461,19 @@ void SGDSolver<Dtype>::ComputeUpdateValue() {
 
 #ifndef CPU_ONLY
   vector<int>& param_owners = this->net_->param_owners_;
+  const int full_sync_iter = 500;
+  if (this->iter_ % full_sync_iter == 0) {
+    LOG(INFO) << "Synching Weight Values";
+    for (int param_id = 0; param_id < net_params.size(); ++param_id) {
+      if (sizeof(Dtype) == sizeof(float)) {
+        MPI_Allreduce(MPI_IN_PLACE, net_params[param_id]->mutable_cpu_data(), net_params[param_id]->count(), MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+      } else {
+        MPI_Allreduce(MPI_IN_PLACE, net_params[param_id]->mutable_cpu_data(), net_params[param_id]->count(), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+      }
+      caffe_scal(net_params[param_id]->count(), 1/Dtype(world_size),
+                 net_params[param_id]->mutable_cpu_data());
+    }
+  }
   for (int param_id = 0; param_id < net_params.size(); ++param_id) {
     if (param_owners[param_id] >= 0 && param_owners[param_id] != param_id) {
       continue;
