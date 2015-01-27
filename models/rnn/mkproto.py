@@ -161,15 +161,6 @@ def get_net(deploy, batch_size):
             lstm_layer.type = LayerParameter.LSTM
             lstm_layer.lstm_param.num_cells = lstm_num_cells
 
-            lstm_layer.lstm_param.input_bias_filler.type = "constant"
-            lstm_layer.lstm_param.input_bias_filler.value = 0.0
-            lstm_layer.lstm_param.input_gate_bias_filler.type = "constant"
-            lstm_layer.lstm_param.input_gate_bias_filler.value = 0.0
-            lstm_layer.lstm_param.forget_gate_bias_filler.type = "constant"
-            lstm_layer.lstm_param.forget_gate_bias_filler.value = 0.0
-            lstm_layer.lstm_param.output_gate_bias_filler.type = "constant"
-            lstm_layer.lstm_param.output_gate_bias_filler.value = 0.0
-
             add_weight_filler(lstm_layer.lstm_param.input_weight_filler)
             add_weight_filler(lstm_layer.lstm_param.input_gate_weight_filler)
             add_weight_filler(lstm_layer.lstm_param.forget_gate_weight_filler)
@@ -178,9 +169,8 @@ def get_net(deploy, batch_size):
             lstm_layer.lstm_param.input_gate_cell_weight_filler = 0
             lstm_layer.lstm_param.output_gate_cell_weight_filler = 0
             lstm_layer.lstm_param.forget_gate_cell_weight_filler = 0
-            for k in range(8):
+            for k in range(4):
                 lstm_layer.param.append('lstm%d_param%d' % (j, k))
-                lstm_layer.blobs_lr.append(1 if (k % 2) == 0 else 0)
             lstm_layer.top.append('lstm%d_layer%d' % (j, i))
             lstm_layer.top.append('lstm%d_mem_cell%d' % (j, i))
             lstm_layer.bottom.append('concat%d_layer%d' % (j, i))
