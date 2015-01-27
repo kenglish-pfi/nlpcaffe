@@ -194,12 +194,8 @@ void LstmLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   const Dtype* next_memory_state_diff = top[1]->cpu_diff();
 
   Dtype* next_state_tot_diff = next_state_tot_diff_buffer_.mutable_cpu_data();
-  for (int n = 0; n < num_; ++n) {
-    for (int i = 0; i < channels_; ++i) {
-      const int idx = i + n * channels_;
-      next_state_tot_diff[idx] = next_memory_state_diff[idx] + output_gates[idx] * next_hidden_state_diff[idx];
-    }
-  }
+  caffe_mul(num_ * channels_, output_gates, next_hidden_state_diff, next_state_tot_diff);
+  caffe_add(num_ * channels_, next_memory_state_diff, next_state_tot_diff, next_state_tot_diff);
 
   caffe_mul(num_ * channels_, next_state_tot_diff, forget_gates, prev_state_diff);
 
@@ -240,57 +236,6 @@ void LstmLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, num_, input_data_size_, channels_,
     (Dtype)1., dldg_data, output_gate_weight,
     (Dtype)1., input_diff);
-
-  // input_diff[input_offset + k] += tanh_diff(input) * next_state_tot_diff[idx] * input_gate_mult * input_weight[wid];
-  // caffe_mul(num_ * channels_, input_values_diff, input_gates, dldg_data);
-  // caffe_mul(num_ * channels_, next_state_tot_diff, dldg_data, dldg_data);
-
-  // for (int n = 0; n < num_; n++) {
-  //   const int state_offset = n * channels_;
-  //   const int input_offset = n * input_data_size_;
-  //   for (int i = 0; i < channels_; i++) {
-  //     const int idx = state_offset + i;
-  //     // Dtype input = Dtype(0);
-  //     // Dtype input_gate_mult = Dtype(0);
-  //     // Dtype forget_gate_mult = Dtype(0);
-  //     // Dtype output_gate_mult = Dtype(0);
-  //     // for (int k = 0; k < input_data_size_; k++) {
-  //     //   const int wid = k + i * (input_data_size_ + 0);
-  //     //   input += input_weight[wid] * input_data[input_offset + k];
-  //     //   input_gate_mult += input_gate_weight[wid] * input_data[input_offset + k];
-  //     //   forget_gate_mult += forget_gate_weight[wid] * input_data[input_offset + k];
-  //     //   output_gate_mult += output_gate_weight[wid] * input_data[input_offset + k];
-  //     // }
-  //     // input = tanh(input);
-  //     // input_gate_mult = sigmoid(input_gate_mult);
-  //     // forget_gate_mult = sigmoid(forget_gate_mult);
-  //     // output_gate_mult = sigmoid(output_gate_mult);
-  //     Dtype input = input_values[idx];
-  //     Dtype input_gate_mult = input_gates[idx];
-  //     Dtype forget_gate_mult = forget_gates[idx];
-  //     Dtype output_gate_mult = output_gates[idx];
-
-  //     const Dtype next_state = next_memory_state[state_offset + i];
-  //     CHECK_NEAR(next_state_tot_diff[idx],
-  //                next_memory_state_diff[state_offset + i] + output_gate_mult * next_hidden_state_diff[state_offset + i],
-  //                Dtype(0.01));
-  //     // const Dtype next_state_tot_diff = next_memory_state_diff[state_offset + i] + output_gate_mult * next_hidden_state_diff[state_offset + i];
-
-  //     // prev_state_diff[state_offset + i] += next_state_tot_diff[idx] * forget_gate_mult;
-
-  //     for (int k = 0; k < input_data_size_; k++) {
-  //       const int wid = k + i * (input_data_size_ + 0);
-  //       // input_weight_diff[wid] += tanh_diff(input) * next_state_tot_diff[idx] * input_gate_mult * input_data[input_offset + k];
-  //       // input_gate_weight_diff[wid] += sigmoid_diff(input_gate_mult) * next_state_tot_diff[idx] * input * input_data[input_offset + k];
-  //       // forget_gate_weight_diff[wid] += sigmoid_diff(forget_gate_mult) * prev_state_data[state_offset + i] * next_state_tot_diff[idx] * input_data[input_offset + k];
-  //       // output_gate_weight_diff[wid] += sigmoid_diff(output_gate_mult) * next_hidden_state_diff[state_offset + i] * next_state * input_data[input_offset + k];
-  //       // input_diff[input_offset + k] += tanh_diff(input) * next_state_tot_diff[idx] * input_gate_mult * input_weight[wid];
-  //       // input_diff[input_offset + k] += sigmoid_diff(input_gate_mult) * next_state_tot_diff[idx] * input * input_gate_weight[wid];
-  //       // input_diff[input_offset + k] += sigmoid_diff(forget_gate_mult) * next_state_tot_diff[idx] * prev_state_data[state_offset + i] * forget_gate_weight[wid];
-  //       // input_diff[input_offset + k] += sigmoid_diff(output_gate_mult) * next_hidden_state_diff[state_offset + i] * next_state * output_gate_weight[wid];
-  //     }
-  //   }
-  // }
 }
 
 #ifdef CPU_ONLY
