@@ -380,7 +380,10 @@ class LstmLayer : public Layer<Dtype> {
   int M_;
   int N_;
   int K_;
-  Blob<Dtype> gates_buffer_;
+  Blob<Dtype> gates_data_buffer_;
+  Blob<Dtype> gates_diff_buffer_;
+  Blob<Dtype> next_state_tot_diff_buffer_;
+  Blob<Dtype> dldg_buffer_;
 };
 
 }  // namespace caffe

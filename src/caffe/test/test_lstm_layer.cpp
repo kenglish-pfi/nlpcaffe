@@ -14,6 +14,7 @@
 
 #define NUM_CELLS 3
 #define BATCH_SIZE 4
+#define INPUT_DATA_SIZE 5
 
 using std::min;
 using std::max;
@@ -33,7 +34,7 @@ class LstmLayerTest : public MultiDeviceTest<TypeParam> {
         blob_top2_(new Blob<Dtype>()) {}
   virtual void SetUp() {
     Caffe::set_random_seed(1601);
-    blob_bottom_->Reshape(BATCH_SIZE, NUM_CELLS, 1, 1);
+    blob_bottom_->Reshape(BATCH_SIZE, INPUT_DATA_SIZE, 1, 1);
     blob_bottom2_->Reshape(BATCH_SIZE, NUM_CELLS, 1, 1);
     // fill the values
     FillerParameter filler_param;
