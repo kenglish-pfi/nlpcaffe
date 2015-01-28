@@ -415,16 +415,9 @@ message ConvolutionParameter {
 message LstmParameter {
   optional uint32 num_cells = 1;
   optional FillerParameter input_weight_filler = 2; // The filler for the weight
-  optional FillerParameter input_bias_filler = 3; // The filler for the bias
-  optional FillerParameter input_gate_weight_filler = 4; // The filler for the weight
-  optional FillerParameter input_gate_bias_filler = 5; // The filler for the bias
-  optional FillerParameter forget_gate_weight_filler = 6; // The filler for the weight
-  optional FillerParameter forget_gate_bias_filler = 7; // The filler for the bias
-  optional FillerParameter output_gate_weight_filler = 8; // The filler for the weight
-  optional FillerParameter output_gate_bias_filler = 9; // The filler for the bias
-  optional float input_gate_cell_weight_filler = 10; // The filler for the cell weight
-  optional float forget_gate_cell_weight_filler = 11; // The filler for the cell weight
-  optional float output_gate_cell_weight_filler = 12; // The filler for the cell weight
+  optional FillerParameter input_gate_weight_filler = 3; // The filler for the weight
+  optional FillerParameter forget_gate_weight_filler = 4; // The filler for the weight
+  optional FillerParameter output_gate_weight_filler = 5; // The filler for the weight
 }
 
 message WordvecParameter {
