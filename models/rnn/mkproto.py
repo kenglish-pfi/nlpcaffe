@@ -8,11 +8,9 @@ import random
 from caffe_pb2 import Datum
 import subprocess
 
-# n = 30
 n = 30
 vocab_size = 10003
-# rand_skip = 11 * 10 ** 6
-rand_skip = 10**4
+rand_skip = 11 * 10 ** 6
 train_batch_size = 64
 
 def make_data():
@@ -159,9 +157,6 @@ def get_net(deploy, batch_size):
             add_weight_filler(lstm_layer.lstm_param.forget_gate_weight_filler)
             add_weight_filler(lstm_layer.lstm_param.output_gate_weight_filler)
 
-            lstm_layer.lstm_param.input_gate_cell_weight_filler = 0
-            lstm_layer.lstm_param.output_gate_cell_weight_filler = 0
-            lstm_layer.lstm_param.forget_gate_cell_weight_filler = 0
             for k in range(4):
                 lstm_layer.param.append('lstm%d_param%d' % (j, k))
             lstm_layer.top.append('lstm%d_layer%d' % (j, i))
