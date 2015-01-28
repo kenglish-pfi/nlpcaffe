@@ -8,15 +8,15 @@ import random
 from caffe_pb2 import Datum
 import subprocess
 
+# n = 30
 n = 30
 vocab_size = 10003
-rand_skip = 30000
-
-
-
+# rand_skip = 11 * 10 ** 6
+rand_skip = 10**4
+train_batch_size = 64
 
 def make_data():
-    for phase in ['train', 'test', 'valid']:
+    for phase in ['train']:
         db_name = './models/rnn/rnn_%s_db' % phase
         subprocess.call(['rm', '-r', db_name])
         env = lmdb.open(db_name, map_size=2147483648*8)
@@ -26,9 +26,9 @@ def make_data():
         zero_symbol = vocab_size - 1
 
         allX = []
-        with open('/home/stewartr/data/simple-examples/%s_indices.txt' % phase, 'r') as f: 
+        with open('/home/stewartr/data/zhen/merged_training.40k.id.en', 'r') as f: 
             for line in f.readlines():
-                allX.append([int(x) for x in line.split(',')])
+                allX.append([int(x) for x in line.split(' ')])
         random.shuffle(allX)
         assert phase != 'train' or len(allX) > rand_skip
 
@@ -42,17 +42,19 @@ def make_data():
                 datum.channels = 2 * n
                 datum.width = 1
                 datum.height = 1
-                sys.stderr.write('%s\r' % i); sys.stderr.flush()
+                if i % 100 == 0:
+                    sys.stderr.write('%s\r' % i); sys.stderr.flush()
                 for j in range(n):
                     if j == 0:
-                        datum.int_data.append(start_symbol)
+                        datum.float_data.append(start_symbol)
                     else:
-                        datum.int_data.append(mod_values[j - 1])
-                    datum.int_data.append(mod_values[j])
+                        datum.float_data.append(mod_values[j - 1])
+                for j in range(n):
+                    datum.float_data.append(mod_values[j])
                 key = str(i)
                 txn.put(key, datum.SerializeToString())
 
-def display_layer(name):
+def display_layer(net, name):
     layer = net.layers.add()
     layer.name = 'display_%s' % name
     layer.top.append('display_%s' % name)
@@ -80,37 +82,38 @@ def get_net(deploy, batch_size):
         train_data.data_param.source = 'models/rnn/rnn_train_db'
         train_data.data_param.backend = DataParameter.LMDB
         train_data.data_param.batch_size = batch_size
-        train_data.data_param.vocab_size = vocab_size
-        train_data.data_param.nlp = True
         train_data.data_param.rand_skip = rand_skip
-        train_data_rule = train_data.include.add()
-        train_data_rule.phase = caffe_pb2.TRAIN
+        # train_data_rule = train_data.include.add()
+        # train_data_rule.phase = caffe_pb2.TRAIN
 
-        valid_data = net.layers.add()
-        valid_data.type = LayerParameter.DATA
-        valid_data.name = "data"
-        valid_data.top.append(valid_data.name)
-        valid_data.data_param.source = 'models/rnn/rnn_valid_db'
-        valid_data.data_param.backend = DataParameter.LMDB
-        valid_data.data_param.batch_size = batch_size
-        valid_data.data_param.vocab_size = vocab_size
-        valid_data.data_param.nlp = True
-        valid_data.data_param.rand_skip = 0
-        valid_data_rule = valid_data.include.add()
-        valid_data_rule.phase = caffe_pb2.TEST
+    data_slice_layer = net.layers.add()
+    data_slice_layer.name = "data_slice_layer"
+    data_slice_layer.type = LayerParameter.SLICE
+    data_slice_layer.slice_param.slice_dim = 1
+    data_slice_layer.bottom.append('data')
+    data_slice_layer.top.append('words')
 
-    slice = net.layers.add()
-    slice.name = "slice"
-    slice.type = LayerParameter.SLICE
-    slice.slice_param.slice_dim = 1
-    slice.bottom.append('data')
+    wordvec_layer = net.layers.add()
+    wordvec_layer.name = "wordvec_layer"
+    wordvec_layer.type = LayerParameter.WORDVEC
+    wordvec_layer.bottom.append('words')
+    wordvec_layer.top.append(wordvec_layer.name)
+    wordvec_layer.wordvec_param.dimension = wordvec_length
+    wordvec_layer.wordvec_param.vocab_size = vocab_size
+
+    input_slice_layer = net.layers.add()
+    input_slice_layer.name = "input_slice_layer"
+    input_slice_layer.type = LayerParameter.SLICE
+    input_slice_layer.slice_param.slice_dim = 0
+    input_slice_layer.bottom.append('wordvec_layer')
 
     for i in range(n):
-        slice.top.append('input%d' % i)
-        slice.top.append('target%d' % i)
+        data_slice_layer.top.append('target%d' % i)
+        data_slice_layer.slice_param.slice_point.append(n + i)
+
+        input_slice_layer.top.append('wordvec%d' % i)
         if i != 0:
-            slice.slice_param.slice_point.append((vocab_size + 1) * i)
-        slice.slice_param.slice_point.append((vocab_size + 1) * (i + 1) - 1)
+            input_slice_layer.slice_param.slice_point.append(i * batch_size)
 
         if i == 0:
             dummy_layer = net.layers.add()
@@ -131,16 +134,6 @@ def get_net(deploy, batch_size):
             dummy_mem_cell.dummy_data_param.height.append(1)
             dummy_mem_cell.dummy_data_param.width.append(1)
 
-        conv_layer = net.layers.add()
-        conv_layer.name = 'conv%d' % i
-        conv_layer.top.append(conv_layer.name)
-        conv_layer.type = LayerParameter.CONVOLUTION
-        conv_layer.bottom.append('input%d' % i)
-        conv_layer.convolution_param.num_output = wordvec_length
-        conv_layer.convolution_param.kernel_size = 1
-        conv_layer.convolution_param.bias_term = False
-        add_weight_filler(conv_layer.convolution_param.weight_filler)
-        conv_layer.param.append('conv_param')
 
         concat_layer0 = net.layers.add()
         concat_layer0.name = 'concat0_layer%d' % i
@@ -150,7 +143,7 @@ def get_net(deploy, batch_size):
         for j, (concat_layer, lstm_layer) in enumerate([(concat_layer0, lstm_layer0)]):
             concat_layer.top.append(concat_layer.name)
             concat_layer.type = LayerParameter.CONCAT
-            concat_layer.bottom.append('conv%d' % i)
+            concat_layer.bottom.append('wordvec%d' % i)
             if j == 1:
                 concat_layer.bottom.append('lstm0_layer%d' % i)
             if i == 0:
@@ -220,12 +213,12 @@ def get_net(deploy, batch_size):
     return net
 
 def main():
-    #if '--make_data' in sys.argv:
-    make_data()
+    if '--make_data' in sys.argv:
+        make_data()
 
     with open('./models/rnn/train_val.prototxt', 'w') as f:
         f.write('name: "RussellNet"\n')
-        f.write(str(get_net(False, 30)));
+        f.write(str(get_net(False, train_batch_size)));
 
     with open('./models/rnn/deploy.prototxt', 'w') as f:
         f.write('name: "RussellNet"\n')
