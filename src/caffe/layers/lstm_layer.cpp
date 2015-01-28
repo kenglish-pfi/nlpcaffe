@@ -57,19 +57,19 @@ void LstmLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   }
 
   shared_ptr<Filler<Dtype> > input_weight_filler(GetFiller<Dtype>(
-      this->layer_param_.lstm_param().input_weight_filler()));
+      lstm_param.input_weight_filler()));
   input_weight_filler->Fill(this->blobs_[0].get());
 
   shared_ptr<Filler<Dtype> > input_gate_weight_filler(GetFiller<Dtype>(
-      this->layer_param_.lstm_param().input_gate_weight_filler()));
+      lstm_param.input_gate_weight_filler()));
   input_gate_weight_filler->Fill(this->blobs_[1].get());
 
   shared_ptr<Filler<Dtype> > forget_gate_weight_filler(GetFiller<Dtype>(
-      this->layer_param_.lstm_param().forget_gate_weight_filler()));
+      lstm_param.forget_gate_weight_filler()));
   forget_gate_weight_filler->Fill(this->blobs_[2].get());
 
   shared_ptr<Filler<Dtype> > output_gate_weight_filler(GetFiller<Dtype>(
-      this->layer_param_.lstm_param().output_gate_weight_filler()));
+      lstm_param.output_gate_weight_filler()));
   output_gate_weight_filler->Fill(this->blobs_[3].get());
 
   // Propagate gradients to the parameters (as directed by backward pass).
