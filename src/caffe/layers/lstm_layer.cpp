@@ -31,7 +31,7 @@ void LstmLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       vector<Blob<Dtype>*>* top) {
   LstmParameter lstm_param = this->layer_param_.lstm_param();
   CHECK((lstm_param.has_num_cells()))
-      << "lstm_param.has_cells_per_block()";
+      << "lstm_param.has_num_cells()";
   CHECK((lstm_param.has_input_weight_filler()))
       << "lstm_param.has_input_weight_filler()";
   CHECK((lstm_param.has_input_gate_weight_filler()))
