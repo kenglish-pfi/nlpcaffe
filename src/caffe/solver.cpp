@@ -475,7 +475,7 @@ void SGDSolver<Dtype>::ComputeUpdateValue() {
     }
   }
   for (int param_id = 0; param_id < net_params.size(); ++param_id) {
-    if (param_owners[param_id] >= 0 && param_owners[param_id] != param_id) {
+    if (param_owners[param_id] >= 0) {
       continue;
     }
     if (sizeof(Dtype) == sizeof(float)) {
@@ -485,7 +485,7 @@ void SGDSolver<Dtype>::ComputeUpdateValue() {
     }
   }
   for (int param_id = 0; param_id < net_params.size(); ++param_id) {
-    if (param_owners[param_id] >= 0 && param_owners[param_id] != param_id) {
+    if (param_owners[param_id] >= 0) {
       caffe_copy(net_params[param_owners[param_id]]->count(), net_params[param_owners[param_id]]->gpu_data(),
         net_params[param_id]->mutable_gpu_data());
     }
