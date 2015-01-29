@@ -51,7 +51,8 @@ void WordvecLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   for (int i = 0; i < sentence_length_; ++i) {
     for (int n = 0; n < num_; ++n) {
       const int idx = n + i * num_;
-      const int word = static_cast<int>(bottom_data[idx] + Dtype(0.5));
+      const int idy = i + n * sentence_length_;
+      const int word = static_cast<int>(bottom_data[idy] + Dtype(0.5));
       caffe_copy(dimension_, weights + word * dimension_, top_data + (*top)[0]->offset(idx));
     }
   }
@@ -69,7 +70,8 @@ void WordvecLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   for (int i = 0; i < sentence_length_; ++i) {
     for (int n = 0; n < num_; ++n) {
       const int idx = n + i * num_;
-      const int word = static_cast<int>(bottom_data[idx] + Dtype(0.5));
+      const int idy = i + n * sentence_length_;
+      const int word = static_cast<int>(bottom_data[idy] + Dtype(0.5));
       caffe_add(dimension_, top_diff + top[0]->offset(idx),
         weights_diff + word * dimension_,
         weights_diff + word * dimension_);
