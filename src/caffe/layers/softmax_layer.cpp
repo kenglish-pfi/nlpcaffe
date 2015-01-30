@@ -35,11 +35,15 @@ void SoftmaxLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   // and then normalize.
   for (int i = 0; i < num; ++i) {
     // initialize scale_data to the first plane
-    caffe_copy(spatial_dim, bottom_data + i * dim, scale_data);
-    for (int j = 0; j < channels; j++) {
-      for (int k = 0; k < spatial_dim; k++) {
-        scale_data[k] = std::max(scale_data[k],
-            bottom_data[i * dim + j * spatial_dim + k]);
+    if (spatial_dim == 1) {
+      scale_data[0] = *std::max_element(bottom_data + i * dim, bottom_data + i * dim + channels);
+    } else {
+      caffe_copy(spatial_dim, bottom_data + i * dim, scale_data);
+      for (int j = 0; j < channels; j++) {
+        for (int k = 0; k < spatial_dim; k++) {
+          scale_data[k] = std::max(scale_data[k],
+              bottom_data[i * dim + j * spatial_dim + k]);
+        }
       }
     }
     // subtraction
