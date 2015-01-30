@@ -14,7 +14,7 @@ rand_skip = 11 * 10 ** 6
 train_batch_size = 64
 
 def make_data():
-    for phase in ['train']:
+    for phase in ['valid', 'test']:
         db_name = './models/rnn/rnn_%s_db' % phase
         subprocess.call(['rm', '-r', db_name])
         env = lmdb.open(db_name, map_size=2147483648*8)
@@ -24,9 +24,11 @@ def make_data():
         zero_symbol = vocab_size - 1
 
         allX = []
-        with open('/home/stewartr/data/zhen/merged_training.40k.id.en', 'r') as f: 
+        with open('/home/stewartr/data/zhen/%s.40k.id.en' % phase, 'r') as f: 
+        #with open('/home/stewartr/data/simple-examples/%s_indices.txt' % phase, 'r') as f: 
             for line in f.readlines():
                 allX.append([int(x) for x in line.split(' ')])
+                #allX.append([int(x) for x in line.split(',')])
         random.shuffle(allX)
         assert phase != 'train' or len(allX) > rand_skip
 
@@ -98,6 +100,8 @@ def get_net(deploy, batch_size):
     wordvec_layer.top.append(wordvec_layer.name)
     wordvec_layer.wordvec_param.dimension = wordvec_length
     wordvec_layer.wordvec_param.vocab_size = vocab_size
+    add_weight_filler(wordvec_layer.wordvec_param.weight_filler)
+
 
     input_slice_layer = net.layers.add()
     input_slice_layer.name = "input_slice_layer"
@@ -167,10 +171,19 @@ def get_net(deploy, batch_size):
             else:
                 lstm_layer.bottom.append('lstm%d_mem_cell%d' % (j, i - 1))
 
+        #dropout_layer = net.layers.add()
+        #dropout_layer.name = "dropout_layer%d" % i
+        #dropout_layer.top.append(dropout_layer.name)
+        #dropout_layer.bottom.append('lstm0_layer%d' % i)
+        #dropout_layer.type = LayerParameter.DROPOUT
+        #dropout_layer.dropout_param.dropout_ratio = 0.5
+
         inner_product_layer = net.layers.add()
         inner_product_layer.name = "inner_product%d" % i
         inner_product_layer.top.append(inner_product_layer.name)
+        #inner_product_layer.bottom.append('dropout_layer%d' % i)
         inner_product_layer.bottom.append('lstm0_layer%d' % i)
+        #dropout_layer.bottom.append(% i)
         inner_product_layer.type = LayerParameter.INNER_PRODUCT
         inner_product_layer.blobs_lr.append(1)
         inner_product_layer.blobs_lr.append(0)
@@ -224,6 +237,6 @@ input_dim: %s
 input_dim: 1
 input_dim: 1
 
-''' % ((vocab_size + 1) * n))
+''' % (2 * n))
         f.write(str(get_net(True, 10)))
 main()
