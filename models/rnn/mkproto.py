@@ -7,14 +7,16 @@ import lmdb
 import random
 from caffe_pb2 import Datum
 import subprocess
+import itertools
 
-n = 30
-vocab_size = 10003
-rand_skip = 11 * 10 ** 6
-train_batch_size = 64
+n = 60
+vocab_size = 40003
+#rand_skip = 11 * 10 ** 6
+rand_skip = 0
+train_batch_size = 32
 
 def make_data():
-    for phase in ['valid', 'test']:
+    for phase in ['train', 'valid', 'test']:
         db_name = './models/rnn/rnn_%s_db' % phase
         subprocess.call(['rm', '-r', db_name])
         env = lmdb.open(db_name, map_size=2147483648*8)
@@ -23,21 +25,35 @@ def make_data():
         start_symbol = vocab_size - 2
         zero_symbol = vocab_size - 1
 
+        def vocab_transform(en, zh):
+            def foo(x):
+                return x if x < unknown_symbol else unknown_symbol
+
+            en_len = 30
+            zh_len = 30
+            en_line = [foo(int(x)) for x in en.split(' ')[:en_len]]
+            #zh_line += [max(0,40000 - int(x)) for x in zh.split(' ')[:30]]
+            zh_line = [foo(max(0,40000 - int(x))) for x in en.split(' ')[:zh_len]]
+
+            en_line = en_line[:n] + [zero_symbol] * (en_len - len(en_line[:n]))
+            zh_line = zh_line[:n] + [zero_symbol] * (zh_len - len(zh_line[:n]))
+            assert len(en_line) == en_len
+            assert len(zh_line) == zh_len
+            return zh_line + en_line
+
         allX = []
-        with open('/home/stewartr/data/zhen/%s.40k.id.en' % phase, 'r') as f: 
-        #with open('/home/stewartr/data/simple-examples/%s_indices.txt' % phase, 'r') as f: 
-            for line in f.readlines():
-                allX.append([int(x) for x in line.split(' ')])
-                #allX.append([int(x) for x in line.split(',')])
+        #with open('/home/stewartr/data/zhen/%s.40k.id.en' % phase, 'r') as f1: 
+        with open('/home/stewartr/data/penn/%s_indices.txt' % phase, 'r') as f1: 
+            with open('/home/stewartr/data/zhen/%s.40k.id.zh' % phase, 'r') as f2: 
+                for en, zh in itertools.izip(f1.readlines(), f2.readlines()):
+                #for en, zh in itertools.islice(itertools.izip(f1.readlines(), f2.readlines()), 100000):
+                    allX.append(vocab_transform(en, zh))
         random.shuffle(allX)
         assert phase != 'train' or len(allX) > rand_skip
 
-        def vocab_transform(x):
-            return x if x < unknown_symbol else unknown_symbol
 
         with env.begin(write=True) as txn:
             for i, values in enumerate(allX):
-                mod_values = map(vocab_transform, values[:n]) + [zero_symbol] * (n - len(values[:n]))
                 datum = Datum()
                 datum.channels = 2 * n
                 datum.width = 1
@@ -45,12 +61,12 @@ def make_data():
                 if i % 100 == 0:
                     sys.stderr.write('%s\r' % i); sys.stderr.flush()
                 for j in range(n):
-                    if j == 0:
+                    if j == 0 or j == n // 2:
                         datum.float_data.append(start_symbol)
                     else:
-                        datum.float_data.append(mod_values[j - 1])
+                        datum.float_data.append(values[j - 1])
                 for j in range(n):
-                    datum.float_data.append(mod_values[j])
+                    datum.float_data.append(values[j])
                 key = str(i)
                 txn.put(key, datum.SerializeToString())
 
@@ -136,7 +152,6 @@ def get_net(deploy, batch_size):
             dummy_mem_cell.dummy_data_param.height.append(1)
             dummy_mem_cell.dummy_data_param.width.append(1)
 
-
         concat_layer0 = net.layers.add()
         concat_layer0.name = 'concat0_layer%d' % i
         lstm_layer0 = net.layers.add()
@@ -147,11 +162,11 @@ def get_net(deploy, batch_size):
             concat_layer.type = LayerParameter.CONCAT
             concat_layer.bottom.append('wordvec%d' % i)
             if j == 1:
-                concat_layer.bottom.append('lstm0_layer%d' % i)
+                concat_layer.bottom.append('lstm0_hidden%d' % i)
             if i == 0:
                 concat_layer.bottom.append(dummy_layer.name)
             else:
-                concat_layer.bottom.append('lstm%d_layer%d' % (j, i - 1))
+                concat_layer.bottom.append('lstm%d_hidden%d' % (j, i - 1))
 
             lstm_layer.type = LayerParameter.LSTM
             lstm_layer.lstm_param.num_cells = lstm_num_cells
@@ -163,7 +178,7 @@ def get_net(deploy, batch_size):
 
             for k in range(4):
                 lstm_layer.param.append('lstm%d_param%d' % (j, k))
-            lstm_layer.top.append('lstm%d_layer%d' % (j, i))
+            lstm_layer.top.append('lstm%d_hidden%d' % (j, i))
             lstm_layer.top.append('lstm%d_mem_cell%d' % (j, i))
             lstm_layer.bottom.append('concat%d_layer%d' % (j, i))
             if i == 0:
@@ -171,52 +186,52 @@ def get_net(deploy, batch_size):
             else:
                 lstm_layer.bottom.append('lstm%d_mem_cell%d' % (j, i - 1))
 
-        #dropout_layer = net.layers.add()
-        #dropout_layer.name = "dropout_layer%d" % i
-        #dropout_layer.top.append(dropout_layer.name)
-        #dropout_layer.bottom.append('lstm0_layer%d' % i)
-        #dropout_layer.type = LayerParameter.DROPOUT
-        #dropout_layer.dropout_param.dropout_ratio = 0.5
+    hidden_concat_layer = net.layers.add()
+    hidden_concat_layer.type = LayerParameter.CONCAT
+    hidden_concat_layer.name = 'hidden_concat'
+    hidden_concat_layer.top.append(hidden_concat_layer.name)
+    hidden_concat_layer.concat_param.concat_dim = 0
+    for i in range(n):
+        hidden_concat_layer.bottom.append('lstm0_hidden%d' % i)
 
-        inner_product_layer = net.layers.add()
-        inner_product_layer.name = "inner_product%d" % i
-        inner_product_layer.top.append(inner_product_layer.name)
-        #inner_product_layer.bottom.append('dropout_layer%d' % i)
-        inner_product_layer.bottom.append('lstm0_layer%d' % i)
-        #dropout_layer.bottom.append(% i)
-        inner_product_layer.type = LayerParameter.INNER_PRODUCT
-        inner_product_layer.blobs_lr.append(1)
-        inner_product_layer.blobs_lr.append(0)
-        inner_product_layer.weight_decay.append(1)
-        inner_product_layer.weight_decay.append(0)
-        inner_product_layer.inner_product_param.num_output = vocab_size
-        add_weight_filler(inner_product_layer.inner_product_param.weight_filler)
-        inner_product_layer.inner_product_param.bias_filler.type = "constant"
-        inner_product_layer.inner_product_param.bias_filler.value = 0.0
-        inner_product_layer.param.append('inner_product_weight')
-        inner_product_layer.param.append('inner_product_bias')
-
+    inner_product_layer = net.layers.add()
+    inner_product_layer.name = "inner_product"
+    inner_product_layer.top.append(inner_product_layer.name)
+    inner_product_layer.bottom.append('hidden_concat')
+    inner_product_layer.type = LayerParameter.INNER_PRODUCT
+    inner_product_layer.inner_product_param.bias_term = False
+    inner_product_layer.inner_product_param.num_output = vocab_size
+    add_weight_filler(inner_product_layer.inner_product_param.weight_filler)
         
+    softmax_slice_layer = net.layers.add()
+    softmax_slice_layer.name = "softmax_slice"
+    softmax_slice_layer.type = LayerParameter.SLICE
+    softmax_slice_layer.slice_param.slice_dim = 0
+    softmax_slice_layer.bottom.append('inner_product')
+
+    for i in range(n):
+        softmax_slice_layer.top.append('softmax_slice%d' % i)
+        if i != 0:
+            softmax_slice_layer.slice_param.slice_point.append(i * batch_size)
         if deploy:
             prob_layer = net.layers.add()
             prob_layer.name = "prob%d" % i
             prob_layer.type = LayerParameter.SOFTMAX
-            prob_layer.bottom.append("inner_product%d" % i)
+            prob_layer.bottom.append("softmax_slice%d" % i)
             prob_layer.top.append("prob%d" % i)
         else:
             loss_layer = net.layers.add()
             i_str = ''.join(['0'] * (len(str(n)) - len(str(i)))) + str(i)
             loss_layer.name = "loss%s" % i_str
             loss_layer.type = LayerParameter.SOFTMAX_LOSS
-            loss_layer.bottom.append("inner_product%d" % i)
+            loss_layer.bottom.append("softmax_slice%d" % i)
             loss_layer.bottom.append("target%d" % i)
             loss_layer.top.append(loss_layer.name)
 
-        if i == n - 1:
-            silence_layer = net.layers.add()
-            silence_layer.name = "silence%d" % i
-            silence_layer.type = LayerParameter.SILENCE
-            silence_layer.bottom.append("lstm0_mem_cell%d" % i)
+    silence_layer = net.layers.add()
+    silence_layer.name = "silence%d" % (n-1)
+    silence_layer.type = LayerParameter.SILENCE
+    silence_layer.bottom.append("lstm0_mem_cell%d" % (n - 1))
 
     return net
 
