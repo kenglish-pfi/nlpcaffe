@@ -4,6 +4,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <mpi.h>
 
 #include "caffe/common.hpp"
 #include "caffe/layer.hpp"
@@ -746,7 +747,7 @@ void Net<Dtype>::ToProto(NetParameter* param, bool write_diff) {
 }
 
 template <typename Dtype>
-void Net<Dtype>::Update() {
+void Net<Dtype>::Update(bool sync_data) {
   // First, accumulate the diffs of any shared parameters into their owner's
   // diff. (Assumes that the learning rate, weight decay, etc. have already been
   // accounted for in the current diff.)
@@ -775,11 +776,40 @@ void Net<Dtype>::Update() {
       LOG(FATAL) << "Unknown caffe mode: " << Caffe::mode();
     }
   }
+
   // Now, update the owned parameters.
+  if (sync_data) { LOG(INFO) << "Synching Weight Values"; }
+
   for (int i = 0; i < params_.size(); ++i) {
     if (param_owners_[i] >= 0) { continue; }
     if (debug_info_) { UpdateDebugInfo(i); }
+
+    // Average the diffs of the param owners across MPI
+    int world_rank = 0;
+    int world_size = 0;
+    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+    if (sizeof(Dtype) == sizeof(float)) {
+      MPI_Allreduce(MPI_IN_PLACE, params_[i]->mutable_cpu_diff(), params_[i]->count(), MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+    } else {
+      MPI_Allreduce(MPI_IN_PLACE, params_[i]->mutable_cpu_diff(), params_[i]->count(), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    }
+    caffe_scal(params_[i]->count(), 1/Dtype(world_size),
+               params_[i]->mutable_cpu_diff());
+
+    // Apply the diffs
     params_[i]->Update();
+
+    // Occasionally synch the data between blobs to avoid divergence
+    if (sync_data) {
+        if (sizeof(Dtype) == sizeof(float)) {
+          MPI_Allreduce(MPI_IN_PLACE, params_[i]->mutable_cpu_data(), params_[i]->count(), MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+        } else {
+          MPI_Allreduce(MPI_IN_PLACE, params_[i]->mutable_cpu_data(), params_[i]->count(), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        }
+        caffe_scal(params_[i]->count(), 1/Dtype(world_size),
+                   params_[i]->mutable_cpu_data());
+    }
   }
 }
 
