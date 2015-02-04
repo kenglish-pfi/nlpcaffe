@@ -48,9 +48,9 @@ void SoftmaxProductLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   const Dtype* labels = bottom[1]->cpu_data();
 
   for (int n = 0; n < bottom[0]->num(); ++n) {
-    const int label_sentence_size = bottom[1]->channels();
-    const int label_batch = n % label_sentence_size;
-    const int label_sentence_pos = n / label_sentence_size;
+    const int label_batch_size = bottom[1]->num();
+    const int label_batch = n % label_batch_size;
+    const int label_sentence_pos = n / label_batch_size;
     const int label_idx = bottom[1]->offset(label_batch, label_sentence_pos);
     const int label = static_cast<int>(labels[label_idx] + Dtype(0.5));
 
@@ -80,9 +80,9 @@ void SoftmaxProductLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   caffe_set(this->blobs_[0]->count(), Dtype(0), weight_diff);
 
   for (int n = 0; n < (*bottom)[0]->num(); ++n) {
-    const int label_sentence_size = (*bottom)[1]->channels();
-    const int label_batch = n % label_sentence_size;
-    const int label_sentence_pos = n / label_sentence_size;
+    const int label_batch_size = (*bottom)[1]->num();
+    const int label_batch = n % label_batch_size;
+    const int label_sentence_pos = n / label_batch_size;
     const int label_idx = (*bottom)[1]->offset(label_batch, label_sentence_pos);
     const int category = static_cast<int>(labels[label_idx] + Dtype(0.5)) % num_categories_;
     // Gradient with respect to weight
