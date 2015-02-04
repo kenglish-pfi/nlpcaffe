@@ -45,6 +45,16 @@ void Solver<Dtype>::Init(const SolverParameter& param) {
 
 template <typename Dtype>
 void Solver<Dtype>::InitTrainNet() {
+
+  {
+    // initialize MPI during make runtest
+    int initialized;
+
+    MPI_Initialized(&initialized);
+    if (!initialized)
+       MPI_Init(NULL, NULL);
+  }
+
   const int num_train_nets = param_.has_net() + param_.has_net_param() +
       param_.has_train_net() + param_.has_train_net_param();
   const string& field_names = "net, net_param, train_net, train_net_param";
