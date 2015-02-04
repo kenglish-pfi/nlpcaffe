@@ -19,7 +19,7 @@ extern cudaDeviceProp CAFFE_TEST_CUDA_PROP;
 
 #define NUM_CATEGORIES 3
 #define NUM_OUTPUT 4
-#define BOTTOM_NUM 2
+#define BOTTOM_NUM 6
 
 template <typename TypeParam>
 class SoftmaxProductLayerTest : public MultiDeviceTest<TypeParam> {
@@ -27,7 +27,7 @@ class SoftmaxProductLayerTest : public MultiDeviceTest<TypeParam> {
  protected:
   SoftmaxProductLayerTest()
       : blob_bottom_(new Blob<Dtype>(BOTTOM_NUM, 3, 5, 2)),
-        blob_bottom2_(new Blob<Dtype>(BOTTOM_NUM, 1, 1, 1)),
+        blob_bottom2_(new Blob<Dtype>(BOTTOM_NUM/2, 2, 1, 1)),
         blob_top_(new Blob<Dtype>()),
         blob_top2_(new Blob<Dtype>()),
         blob_top3_(new Blob<Dtype>()) {

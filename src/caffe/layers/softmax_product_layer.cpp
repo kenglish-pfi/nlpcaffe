@@ -33,6 +33,7 @@ template <typename Dtype>
 void SoftmaxProductLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
       vector<Blob<Dtype>*>* top) {
   // // Figure out the dimensions
+  CHECK_EQ(bottom[0]->num(), bottom[1]->count()) << "There must be one label per input vector";
   (*top)[0]->Reshape(bottom[0]->num(), N_, 1, 1);
   (*top)[1]->Reshape(bottom[0]->num(), 1, 1, 1);
   (*top)[2]->Reshape(bottom[0]->num(), 1, 1, 1);
@@ -45,8 +46,14 @@ void SoftmaxProductLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   Dtype* top_data = (*top)[0]->mutable_cpu_data();
   const Dtype* weight = this->blobs_[0]->cpu_data();
   const Dtype* labels = bottom[1]->cpu_data();
+
   for (int n = 0; n < bottom[0]->num(); ++n) {
-    const int label = static_cast<int>(labels[n] + Dtype(0.5));
+    const int label_sentence_size = bottom[1]->channels();
+    const int label_batch = n % label_sentence_size;
+    const int label_sentence_pos = n / label_sentence_size;
+    const int label_idx = bottom[1]->offset(label_batch, label_sentence_pos);
+    const int label = static_cast<int>(labels[label_idx] + Dtype(0.5));
+
     const int category = label % num_categories_;
     caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasTrans, 1, N_, K_, (Dtype)1.,
         bottom_data + bottom[0]->offset(n),
@@ -73,7 +80,11 @@ void SoftmaxProductLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   caffe_set(this->blobs_[0]->count(), Dtype(0), weight_diff);
 
   for (int n = 0; n < (*bottom)[0]->num(); ++n) {
-    const int category = static_cast<int>(labels[n] + Dtype(0.5)) % num_categories_;
+    const int label_sentence_size = (*bottom)[1]->channels();
+    const int label_batch = n % label_sentence_size;
+    const int label_sentence_pos = n / label_sentence_size;
+    const int label_idx = (*bottom)[1]->offset(label_batch, label_sentence_pos);
+    const int category = static_cast<int>(labels[label_idx] + Dtype(0.5)) % num_categories_;
     // Gradient with respect to weight
     caffe_cpu_gemm<Dtype>(CblasTrans, CblasNoTrans, N_, K_, 1, (Dtype)1.,
         top_diff + top[0]->offset(n),
