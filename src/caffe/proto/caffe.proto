@@ -265,6 +265,7 @@ message LayerParameter {
     SILENCE = 36;
     SOFTMAX = 20;
     SOFTMAX_LOSS = 21;
+    SOFTMAX_PRODUCT = 103;
     SPLIT = 22;
     SLICE = 33;
     TANH = 23;
@@ -323,6 +324,7 @@ message LayerParameter {
   optional ReLUParameter relu_param = 30;
   optional SigmoidParameter sigmoid_param = 38;
   optional SoftmaxParameter softmax_param = 39;
+  optional SoftmaxProductParameter softmax_product_param = 103;
   optional SliceParameter slice_param = 31;
   optional TanHParameter tanh_param = 37;
   optional ThresholdParameter threshold_param = 25;
@@ -418,6 +420,12 @@ message LstmParameter {
   optional FillerParameter input_gate_weight_filler = 3; // The filler for the weight
   optional FillerParameter forget_gate_weight_filler = 4; // The filler for the weight
   optional FillerParameter output_gate_weight_filler = 5; // The filler for the weight
+}
+
+message SoftmaxProductParameter {
+  optional uint32 num_output = 1; // The number of outputs for the layer
+  optional uint32 num_categories = 2; // The number of categories
+  optional FillerParameter weight_filler = 3; // The filler for the weight
 }
 
 message WordvecParameter {

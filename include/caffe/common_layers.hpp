@@ -283,6 +283,39 @@ class InnerProductLayer : public Layer<Dtype> {
   Blob<Dtype> bias_multiplier_;
 };
 
+template <typename Dtype>
+class SoftmaxProductLayer : public Layer<Dtype> {
+ public:
+  explicit SoftmaxProductLayer(const LayerParameter& param)
+      : Layer<Dtype>(param) {}
+  virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+  virtual void Reshape(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+
+  virtual inline LayerParameter_LayerType type() const {
+    return LayerParameter_LayerType_SOFTMAX_PRODUCT;
+  }
+  virtual inline int ExactNumBottomBlobs() const { return 2; }
+  virtual inline int ExactNumTopBlobs() const { return 3; }
+
+ protected:
+  virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+  // virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
+  //     vector<Blob<Dtype>*>* top);
+  virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, vector<Blob<Dtype>*>* bottom);
+  // virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
+  //     const vector<bool>& propagate_down, vector<Blob<Dtype>*>* bottom);
+
+  int num_output_;
+  int num_categories_;
+  int input_dim_;
+  int K_;
+  int N_;
+};
+
 /**
  * @brief Normalizes the input to have 0-mean and/or unit (1) variance.
  *
