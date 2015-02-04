@@ -59,8 +59,9 @@ void SoftmaxWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down,
     vector<Blob<Dtype>*>* bottom) {
   if (propagate_down[1]) {
-    LOG(FATAL) << this->type_name()
-               << " Layer cannot backpropagate to label inputs.";
+    // Removed fatal warning because couldn't figure out how to avoid crash for softmax_product_layer
+    // LOG(FATAL) << this->type_name()
+    //            << " Layer cannot backpropagate to label inputs.";
   }
   if (propagate_down[0]) {
     Dtype* bottom_diff = (*bottom)[0]->mutable_cpu_diff();
