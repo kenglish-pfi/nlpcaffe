@@ -1015,7 +1015,7 @@ TYPED_TEST(NetTest, TestSharedWeightsUpdate) {
   caffe_axpy(count, Dtype(-1), shared_params.cpu_diff(),
              shared_params.mutable_cpu_data());
   const Dtype* expected_updated_params = shared_params.cpu_data();
-  this->net_->Update();
+  this->net_->Update(false);
   const Dtype* actual_updated_params = ip1_weights->cpu_data();
   for (int i = 0; i < count; ++i) {
     EXPECT_EQ(expected_updated_params[i], actual_updated_params[i]);
@@ -1057,7 +1057,7 @@ TYPED_TEST(NetTest, TestSharedWeightsUpdate) {
              unshared_params2.mutable_cpu_data());
   const Dtype* expected_updated_params1 = unshared_params1.cpu_data();
   const Dtype* expected_updated_params2 = unshared_params2.cpu_data();
-  this->net_->Update();
+  this->net_->Update(false);
   const Dtype* actual_updated_params1 = ip1_weights->cpu_data();
   const Dtype* actual_updated_params2 = ip2_weights->cpu_data();
   for (int i = 0; i < count; ++i) {

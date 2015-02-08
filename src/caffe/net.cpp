@@ -780,21 +780,31 @@ void Net<Dtype>::Update(bool sync_data) {
   // Now, update the owned parameters.
   if (sync_data) { LOG(INFO) << "Synching Weight Values"; }
 
+  Dtype diff_norm = 0;
   for (int i = 0; i < params_.size(); ++i) {
     if (param_owners_[i] >= 0) { continue; }
     if (debug_info_) { UpdateDebugInfo(i); }
 
     // Average the diffs of the param owners across MPI
-    int world_rank = 0;
-    int world_size = 0;
-    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
     if (sizeof(Dtype) == sizeof(float)) {
       MPI_Allreduce(MPI_IN_PLACE, params_[i]->mutable_cpu_diff(), params_[i]->count(), MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
     } else {
       MPI_Allreduce(MPI_IN_PLACE, params_[i]->mutable_cpu_diff(), params_[i]->count(), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     }
-    caffe_scal(params_[i]->count(), 1/Dtype(world_size),
+
+    diff_norm += caffe_cpu_dot(params_[i]->count(), params_[i]->cpu_diff(), params_[i]->cpu_diff());
+  }
+  caffe_powx(1, &diff_norm, Dtype(0.5), &diff_norm);
+  int world_size = 0;
+  int world_rank = 0;
+  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+  Dtype max_grad = Dtype(5.0);
+  Dtype grad_scale = diff_norm > max_grad ? max_grad / diff_norm : Dtype(1.0);
+  //if (world_rank == 0) { LOG(INFO) << diff_norm << ", " << Dtype(1) / grad_scale; }
+
+  for (int i = 0; i < params_.size(); ++i) {
+    caffe_scal(params_[i]->count(), grad_scale * 1/Dtype(world_size),
                params_[i]->mutable_cpu_diff());
 
     // Apply the diffs
