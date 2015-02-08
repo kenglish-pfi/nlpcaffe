@@ -48,7 +48,20 @@ void SoftmaxWithLossLayer<Dtype>::Forward_cpu(
                            Dtype(FLT_MIN)));
     }
   }
-  (*top)[0]->mutable_cpu_data()[0] = loss / num / spatial_dim;
+  int num_nonempty = 0;
+  if (this->layer_param_.softmax_loss_param().has_empty_word()) {
+    const Dtype* raw_label = bottom[2]->cpu_data();
+    for (int i = 0; i < bottom[2]->count(); ++i) {
+      if (static_cast<int>(raw_label[i]) !=
+          this->layer_param_.softmax_loss_param().empty_word()) {
+          num_nonempty++;
+      }
+    }
+    //LOG(INFO) << "empty_word: " << num_nonempty << " " << num * spatial_dim;
+  } else {
+    num_nonempty = num * spatial_dim;
+  }
+  (*top)[0]->mutable_cpu_data()[0] = loss / num_nonempty;
   if (top->size() == 2) {
     (*top)[1]->ShareData(prob_);
   }
