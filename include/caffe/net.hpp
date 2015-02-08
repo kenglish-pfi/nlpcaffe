@@ -83,7 +83,7 @@ class Net {
   }
 
   /// @brief Updates the network weights based on the diff values computed.
-  void Update(bool sync_data);
+  void Update(const bool sync_data, const bool clip_grads, Dtype max_grad);
 
   /**
    * @brief For an already initialized net, implicitly copies (i.e., using no

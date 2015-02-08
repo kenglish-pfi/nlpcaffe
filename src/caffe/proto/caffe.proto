@@ -163,6 +163,7 @@ message SolverParameter {
 
   // If false, don't save a snapshot after training finishes.
   optional bool snapshot_after_train = 28 [default = true];
+  optional float max_grad = 101; // Gradient clipping maximum
 }
 
 // A message that stores the solver snapshots

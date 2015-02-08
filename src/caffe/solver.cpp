@@ -231,8 +231,13 @@ void Solver<Dtype>::Solve(const char* resume_file) {
 
     ComputeUpdateValue();
 
-    const int full_sync_iter = 500;
-    net_->Update(this->iter_ % full_sync_iter == 0);
+    const bool full_sync = (this->iter_ % 500 == 0);
+    const bool clip_grads = param_.has_max_grad();
+    Dtype max_grad = Dtype(0);
+    if (clip_grads) {
+      max_grad = param_.max_grad();
+    }
+    net_->Update(full_sync, clip_grads, max_grad);
   }
   // Always save a snapshot after optimization, unless overridden by setting
   // snapshot_after_train := false.
@@ -324,14 +329,6 @@ void Solver<Dtype>::Test(const int test_net_id) {
 
 template <typename Dtype>
 void Solver<Dtype>::Snapshot() {
-  {
-    // initialize MPI during make runtest
-    int initialized;
-
-    MPI_Initialized(&initialized);
-    if (!initialized)
-       MPI_Init(NULL, NULL);
-  }
   int world_rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
   if (world_rank == 0) {
