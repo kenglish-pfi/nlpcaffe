@@ -786,7 +786,7 @@ void Net<Dtype>::Update(const bool sync_data, const bool clip_grads, const Dtype
     if (param_owners_[i] >= 0) { continue; }
     if (debug_info_) { UpdateDebugInfo(i); }
 
-    //// Average the diffs of the param owners across MPI
+    // Average the diffs of the param owners across MPI
     if (sizeof(Dtype) == sizeof(float)) {
       MPI_Allreduce(MPI_IN_PLACE, params_[i]->mutable_cpu_diff(), params_[i]->count(), MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
     } else {
