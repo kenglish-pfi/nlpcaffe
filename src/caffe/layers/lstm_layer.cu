@@ -160,6 +160,8 @@ void LstmLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
     output_gates_diff,
     input_values_diff);
 
+  CUDA_POST_KERNEL_CHECK;
+
   Dtype* input_weight_diff = this->blobs_[0]->mutable_gpu_diff();
   Dtype* input_gate_weight_diff = this->blobs_[1]->mutable_gpu_diff();
   Dtype* forget_gate_weight_diff = this->blobs_[2]->mutable_gpu_diff();
