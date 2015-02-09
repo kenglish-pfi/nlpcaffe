@@ -10,20 +10,23 @@ import subprocess
 import itertools
 
 source_length = 30
-target_length = 30
-vocab_size = 41000
-num_categories = 10250
-category_size = 4
-assert num_categories * category_size == vocab_size
+target_length = 20
+source_vocab_size = 41000
+target_vocab_size = 41000
+num_categories = 1000
+category_size = 41
+assert num_categories * category_size == target_vocab_size
 
-unknown_symbol = vocab_size - 3
-start_symbol = vocab_size - 2
-zero_symbol = vocab_size - 1
+s_unknown_symbol = target_vocab_size + source_vocab_size - 3
+s_start_symbol = target_vocab_size + source_vocab_size - 2
+s_zero_symbol = target_vocab_size + source_vocab_size - 1
 
-#rand_skip = 11 * 10 ** 6
-#rand_skip = 0
-rand_skip = 30000
-train_batch_size = 32
+t_unknown_symbol = target_vocab_size - 3
+t_start_symbol = target_vocab_size - 2
+t_zero_symbol = target_vocab_size - 1
+
+rand_skip = 11 * 10 ** 6
+train_batch_size = 64
 deploy_batch_size = 10
 
 
@@ -34,49 +37,51 @@ def make_data():
         env = lmdb.open(db_name, map_size=2147483648*8)
 
 
-        def vocab_transform(en, zh):
-            def foo(x):
-                return x if x < unknown_symbol else unknown_symbol
+        def vocab_transform(source_input, target_input):
+            def s_foo(x):
+                return x if x < s_unknown_symbol else s_unknown_symbol
+            def t_foo(x):
+                return x if x < t_unknown_symbol else t_unknown_symbol
 
-            en_len = 100
-            zh_len = 100
-            en_line = [foo(int(x)) for x in en.split(' ')[:en_len]]
-            #zh_line += [max(0,40000 - int(x)) for x in zh.split(' ')[:30]]
-            zh_line = [foo(int(x)) for x in en.split(' ')[:zh_len]]
+            source_line = [s_foo(int(x)) for x in source_input.split(' ')[:source_length]]
+            target_line = [t_foo(int(x)) for x in target_input.split(' ')[:target_length]]
 
-            en_line = en_line[:en_len] + [zero_symbol] * (en_len - len(en_line[:en_len]))
-            zh_line = zh_line[:zh_len] + [zero_symbol] * (zh_len - len(zh_line[:zh_len]))
-            assert len(en_line) == en_len
-            assert len(zh_line) == zh_len
-            return en_line
+            source_line = source_line[:source_length] + [s_zero_symbol] * (source_length - len(source_line[:source_length]))
+            target_line = target_line[:target_length] + [t_zero_symbol] * (target_length - len(target_line[:target_length]))
+            assert len(source_line) == source_length
+            assert len(target_line) == target_length
+            return [source_line, target_line]
 
         allX = []
-        #with open('/home/stewartr/data/zhen/%s.40k.id.en' % phase, 'r') as f1: 
-        with open('/home/stewartr/data/penn/%s_indices.txt' % phase, 'r') as f1: 
-            with open('/home/stewartr/data/zhen/%s.40k.id.zh' % phase, 'r') as f2: 
-                #for en, zh in itertools.izip(f1.readlines(), f2.readlines()):
-                for en in f1.readlines():
-                    #allX.append(vocab_transform(en, zh))
-                    allX.append(vocab_transform(en, en))
-        random.shuffle(allX)
+        with open('/home/stewartr/data/zhen/shuffled_%s.40k.id.en' % phase, 'r') as f1: 
+            with open('/home/stewartr/data/zhen/shuffled_%s.40k.id.zh' % phase, 'r') as f2: 
+                for en, zh in itertools.izip(f1.readlines(), f2.readlines()):
+                #for en, zh in itertools.islice(itertools.izip(f1.readlines(), f2.readlines()), 100000):
+                    allX.append(vocab_transform(en, zh))
+
         assert phase != 'train' or len(allX) > rand_skip
 
 
         with env.begin(write=True) as txn:
-            for i, values in enumerate(allX):
+            for i, (source_line, target_line) in enumerate(allX):
                 datum = Datum()
-                datum.channels = 2 * source_length
+                datum.channels = source_length + 2 * target_length
                 datum.width = 1
                 datum.height = 1
-                if i % 100 == 0:
+                if i % 1000 == 0:
                     sys.stderr.write('%s\r' % i); sys.stderr.flush()
                 for j in range(source_length):
-                    if j == 0: #or j == source_length // 2:
-                        datum.float_data.append(start_symbol)
+                    if j == 0:
+                        datum.float_data.append(s_start_symbol)
                     else:
-                        datum.float_data.append(values[j - 1])
-                for j in range(source_length):
-                    datum.float_data.append(values[j])
+                        datum.float_data.append(source_line[::-1][j - 1])
+                for j in range(target_length):
+                    if j == 0:
+                        datum.float_data.append(t_start_symbol)
+                    else:
+                        datum.float_data.append(target_line[j - 1])
+                for j in range(target_length):
+                    datum.float_data.append(target_line[j])
                 key = str(i)
                 txn.put(key, datum.SerializeToString())
 
@@ -92,8 +97,8 @@ def display_layer(net, name):
 
 def add_weight_filler(param):
     param.type = 'uniform'
-    param.min = -0.2
-    param.max = 0.2
+    param.min = -0.1
+    param.max = 0.1
 
 def get_net(deploy, batch_size):
     net = NetParameter()
@@ -134,7 +139,7 @@ def get_net(deploy, batch_size):
     data_slice_layer.top.append('words')
 
     data_slice_layer.top.append('target')
-    data_slice_layer.slice_param.slice_point.append(source_length)
+    data_slice_layer.slice_param.slice_point.append(source_length + target_length)
 
     wordvec_layer = net.layers.add()
     wordvec_layer.name = "wordvec_layer"
@@ -142,7 +147,7 @@ def get_net(deploy, batch_size):
     wordvec_layer.bottom.append('words')
     wordvec_layer.top.append(wordvec_layer.name)
     wordvec_layer.wordvec_param.dimension = wordvec_length
-    wordvec_layer.wordvec_param.vocab_size = vocab_size
+    wordvec_layer.wordvec_param.vocab_size = source_vocab_size + target_vocab_size
     add_weight_filler(wordvec_layer.wordvec_param.weight_filler)
 
 
@@ -152,7 +157,7 @@ def get_net(deploy, batch_size):
     input_slice_layer.slice_param.slice_dim = 0
     input_slice_layer.bottom.append('wordvec_layer')
 
-    for i in range(source_length):
+    for i in range(source_length + target_length):
         input_slice_layer.top.append('wordvec%d' % i)
         if i != 0:
             input_slice_layer.slice_param.slice_point.append(i * batch_size)
@@ -215,7 +220,7 @@ def get_net(deploy, batch_size):
     hidden_concat_layer.name = 'hidden_concat'
     hidden_concat_layer.top.append(hidden_concat_layer.name)
     hidden_concat_layer.concat_param.concat_dim = 0
-    for i in range(source_length):
+    for i in range(source_length, source_length + target_length):
         hidden_concat_layer.bottom.append('lstm0_hidden%d' % i)
 
     inner_product_layer = net.layers.add()
@@ -259,7 +264,7 @@ def get_net(deploy, batch_size):
         category_loss_layer.bottom.append("target_category_id")
         category_loss_layer.bottom.append("target")
         category_loss_layer.top.append(category_loss_layer.name)
-        category_loss_layer.softmax_loss_param.empty_word = zero_symbol
+        category_loss_layer.softmax_loss_param.empty_word = t_zero_symbol
 
         local_loss_layer = net.layers.add()
         local_loss_layer.name = "local_loss"
@@ -268,12 +273,12 @@ def get_net(deploy, batch_size):
         local_loss_layer.bottom.append("target_local_id")
         local_loss_layer.bottom.append("target")
         local_loss_layer.top.append(local_loss_layer.name)
-        category_loss_layer.softmax_loss_param.empty_word = zero_symbol
+        category_loss_layer.softmax_loss_param.empty_word = t_zero_symbol
 
     silence_layer = net.layers.add()
     silence_layer.name = "silence%d" % (source_length-1)
     silence_layer.type = LayerParameter.SILENCE
-    silence_layer.bottom.append("lstm0_mem_cell%d" % (source_length - 1))
+    silence_layer.bottom.append("lstm0_mem_cell%d" % (source_length + target_length - 1))
 
     return net
 
@@ -294,7 +299,7 @@ input_dim: %s
 input_dim: 1
 input_dim: 1
 
-''' % (deploy_batch_size, 2 * source_length))
+''' % (deploy_batch_size, source_length + 2 * target_length))
         f.write(str(get_net(True, deploy_batch_size)))
 if __name__ == '__main__':
     main()
