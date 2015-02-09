@@ -14,6 +14,7 @@ target_length = 20
 source_vocab_size = 41000
 target_vocab_size = 41000
 num_categories = 1000
+num_lstm_stacks = 4
 category_size = 41
 assert num_categories * category_size == target_vocab_size
 
@@ -26,7 +27,7 @@ t_start_symbol = target_vocab_size - 2
 t_zero_symbol = target_vocab_size - 1
 
 rand_skip = 11 * 10 ** 6
-train_batch_size = 64
+train_batch_size = 128
 deploy_batch_size = 10
 
 
@@ -55,8 +56,8 @@ def make_data():
         allX = []
         with open('/home/stewartr/data/zhen/shuffled_%s.40k.id.en' % phase, 'r') as f1: 
             with open('/home/stewartr/data/zhen/shuffled_%s.40k.id.zh' % phase, 'r') as f2: 
-                for en, zh in itertools.izip(f1.readlines(), f2.readlines()):
-                #for en, zh in itertools.islice(itertools.izip(f1.readlines(), f2.readlines()), 100000):
+                #for en, zh in itertools.izip(f1.readlines(), f2.readlines()):
+                for en, zh in itertools.islice(itertools.izip(f1.readlines(), f2.readlines()), 10000):
                     allX.append(vocab_transform(en, zh))
 
         assert phase != 'train' or len(allX) > rand_skip
@@ -102,8 +103,8 @@ def add_weight_filler(param):
 
 def get_net(deploy, batch_size):
     net = NetParameter()
-    lstm_num_cells = 250
-    wordvec_length = 200
+    lstm_num_cells = 500
+    wordvec_length = 500
 
     if not deploy:
         train_data = net.layers.add()
@@ -120,7 +121,7 @@ def get_net(deploy, batch_size):
             test_data.type = LayerParameter.DATA
             test_data.name = "data"
             test_data.top.append(test_data.name)
-            test_data.data_param.source = 'models/rnn/rnn_test_db'
+            test_data.data_param.source = 'models/rnn/rnn_valid_db'
             test_data.data_param.backend = DataParameter.LMDB
             test_data.data_param.batch_size = batch_size
             test_data.data_param.rand_skip = rand_skip
@@ -181,17 +182,18 @@ def get_net(deploy, batch_size):
             dummy_mem_cell.dummy_data_param.height.append(1)
             dummy_mem_cell.dummy_data_param.width.append(1)
 
-        concat_layer0 = net.layers.add()
-        concat_layer0.name = 'concat0_layer%d' % i
-        lstm_layer0 = net.layers.add()
-        lstm_layer0.name = 'lstm0_layer%d' % i
 
-        for j, (concat_layer, lstm_layer) in enumerate([(concat_layer0, lstm_layer0)]):
+        for j in range(num_lstm_stacks):
+            concat_layer = net.layers.add()
+            concat_layer.name = 'concat%d_layer%d' % (j, i)
+            lstm_layer = net.layers.add()
+            lstm_layer.name = 'lstm%d_layer%d' % (j, i)
+
             concat_layer.top.append(concat_layer.name)
             concat_layer.type = LayerParameter.CONCAT
             concat_layer.bottom.append('wordvec%d' % i)
             if j == 1:
-                concat_layer.bottom.append('lstm0_hidden%d' % i)
+                concat_layer.bottom.append('lstm%d_hidden%d' % (j - 1, i))
             if i == 0:
                 concat_layer.bottom.append(dummy_layer.name)
             else:
@@ -221,7 +223,7 @@ def get_net(deploy, batch_size):
     hidden_concat_layer.top.append(hidden_concat_layer.name)
     hidden_concat_layer.concat_param.concat_dim = 0
     for i in range(source_length, source_length + target_length):
-        hidden_concat_layer.bottom.append('lstm0_hidden%d' % i)
+        hidden_concat_layer.bottom.append('lstm%d_hidden%d' % (num_lstm_stacks - 1, i))
 
     inner_product_layer = net.layers.add()
     inner_product_layer.name = "inner_product"
@@ -278,7 +280,10 @@ def get_net(deploy, batch_size):
     silence_layer = net.layers.add()
     silence_layer.name = "silence%d" % (source_length-1)
     silence_layer.type = LayerParameter.SILENCE
-    silence_layer.bottom.append("lstm0_mem_cell%d" % (source_length + target_length - 1))
+    for j in range(num_lstm_stacks):
+        silence_layer.bottom.append("lstm%d_mem_cell%d" % (j, source_length + target_length - 1))
+    for j in range(num_lstm_stacks - 1):
+        silence_layer.bottom.append("lstm%d_hidden%d" % (j, source_length + target_length - 1))
 
     return net
 
