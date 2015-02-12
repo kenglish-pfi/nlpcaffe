@@ -38,7 +38,7 @@ void WordvecLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
       << "Wordvec must have no more than one bottom";
   CHECK((this->layer_param_.top_size() == 1 || this->layer_param_.top_size() == 0))
       << "Wordvec must have no more than one top";
-  (*top)[0]->Reshape(sentence_length_ * num_, dimension_, 1, 1);
+  (*top)[0]->Reshape(num_, dimension_, sentence_length_, 1);
 }
 
 template <typename Dtype>
@@ -48,12 +48,13 @@ void WordvecLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   Dtype* bottom_data = bottom[0]->mutable_cpu_data();
   Dtype* top_data = (*top)[0]->mutable_cpu_data();
 
-  for (int i = 0; i < sentence_length_; ++i) {
-    for (int n = 0; n < num_; ++n) {
-      const int idx = n + i * num_;
-      const int idy = i + n * sentence_length_;
-      const int word = static_cast<int>(bottom_data[idy] + Dtype(0.5));
-      caffe_copy(dimension_, weights + word * dimension_, top_data + (*top)[0]->offset(idx));
+  for (int n = 0; n < num_; ++n) {
+    for (int d = 0; d < dimension_; ++d) {
+      for (int i = 0; i < sentence_length_; ++i) {
+        const int word = static_cast<int>(bottom_data[i + n * sentence_length_]
+            + Dtype(0.5));
+        top_data[i + (d + (n * dimension_)) * sentence_length_] = weights[d + word * dimension_];
+      }
     }
   }
 }
@@ -67,14 +68,14 @@ void WordvecLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 
   caffe_set(this->blobs_[0]->count(), Dtype(0), weights_diff);
 
-  for (int i = 0; i < sentence_length_; ++i) {
-    for (int n = 0; n < num_; ++n) {
-      const int idx = n + i * num_;
-      const int idy = i + n * sentence_length_;
-      const int word = static_cast<int>(bottom_data[idy] + Dtype(0.5));
-      caffe_add(dimension_, top_diff + top[0]->offset(idx),
-        weights_diff + word * dimension_,
-        weights_diff + word * dimension_);
+  for (int n = 0; n < num_; ++n) {
+    for (int d = 0; d < dimension_; ++d) {
+      for (int i = 0; i < sentence_length_; ++i) {
+        const int word = static_cast<int>(bottom_data[i + n * sentence_length_]
+            + Dtype(0.5));
+        weights_diff[d + word * dimension_] +=
+            top_diff[i + (d + (n * dimension_)) * sentence_length_];
+      }
     }
   }
 }

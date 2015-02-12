@@ -77,9 +77,9 @@ TYPED_TEST(WordvecLayerTest, TestSetupAcrossChannels) {
   wordvec_param->mutable_weight_filler()->set_type("xavier");
   WordvecLayer<Dtype> layer(layer_param);
   layer.SetUp(this->blob_bottom_vec_, &(this->blob_top_vec_));
-  EXPECT_EQ(this->blob_top_->num(), SENTENCE_LENGTH * BATCH_SIZE);
+  EXPECT_EQ(this->blob_top_->num(), BATCH_SIZE);
   EXPECT_EQ(this->blob_top_->channels(), DIMENSION);
-  EXPECT_EQ(this->blob_top_->height(), 1);
+  EXPECT_EQ(this->blob_top_->height(), SENTENCE_LENGTH);
   EXPECT_EQ(this->blob_top_->width(), 1);
 }
 

@@ -44,6 +44,13 @@ class SliceLayerTest : public MultiDeviceTest<TypeParam> {
     filler.Fill(this->blob_bottom_);
   }
 
+  virtual void ExtremeReduceBottomBlobSize() {
+    blob_bottom_->Reshape(4, 5, 2, 1);
+    FillerParameter filler_param;
+    GaussianFiller<Dtype> filler(filler_param);
+    filler.Fill(this->blob_bottom_);
+  }
+
   virtual ~SliceLayerTest() {
     delete blob_top_0_; delete blob_top_1_;
     delete blob_top_2_; delete blob_bottom_;
@@ -181,6 +188,30 @@ TYPED_TEST(SliceLayerTest, TestGradientAcrossChannels) {
   const int kSlicePoint = 4;
   layer_param.mutable_slice_param()->add_slice_point(kSlicePoint);
   SliceLayer<Dtype> layer(layer_param);
+  GradientChecker<Dtype> checker(1e-2, 1e-3);
+  checker.CheckGradientExhaustive(&layer, &(this->blob_bottom_vec_),
+    &(this->blob_top_vec_0_));
+}
+
+TYPED_TEST(SliceLayerTest, TestGradientAcrossHeight) {
+  typedef typename TypeParam::Dtype Dtype;
+  // Gradient checks are slow; reduce blob size.
+  this->ExtremeReduceBottomBlobSize();
+  LayerParameter layer_param;
+  layer_param.mutable_slice_param()->set_slice_dim(2);
+  layer_param.mutable_slice_param()->add_slice_point(1);
+
+  SliceLayer<Dtype> layer(layer_param);
+  layer.SetUp(this->blob_bottom_vec_, &(this->blob_top_vec_0_));
+  EXPECT_EQ(this->blob_top_0_->num(), this->blob_bottom_->num());
+  EXPECT_EQ(this->blob_top_0_->channels(), this->blob_bottom_->channels());
+  EXPECT_EQ(this->blob_top_0_->height(), 1);
+  EXPECT_EQ(this->blob_top_0_->width(), 1);
+  EXPECT_EQ(this->blob_top_1_->num(), this->blob_bottom_->num());
+  EXPECT_EQ(this->blob_top_1_->channels(), this->blob_bottom_->channels());
+  EXPECT_EQ(this->blob_top_1_->height(), 1);
+  EXPECT_EQ(this->blob_top_1_->width(), 1);
+
   GradientChecker<Dtype> checker(1e-2, 1e-3);
   checker.CheckGradientExhaustive(&layer, &(this->blob_bottom_vec_),
     &(this->blob_top_vec_0_));

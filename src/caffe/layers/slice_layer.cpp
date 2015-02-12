@@ -13,7 +13,7 @@ void SliceLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   const SliceParameter& slice_param = this->layer_param_.slice_param();
   slice_dim_ = slice_param.slice_dim();
   CHECK_GE(slice_dim_, 0);
-  CHECK_LE(slice_dim_, 1) << "Can only slice num and channels";
+  CHECK_LE(slice_dim_, 2) << "Can only slice num and channels and height";
   slice_point_.clear();
   std::copy(slice_param.slice_point().begin(),
       slice_param.slice_point().end(),
@@ -28,12 +28,15 @@ void SliceLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
   channels_ = bottom[0]->channels();
   height_ = bottom[0]->height();
   width_ = bottom[0]->width();
+  CHECK(!(slice_dim_ == 2 && width_ > 1)) << "width > 1 is not supported for slice_dim_ == 2";
   if (slice_point_.size() != 0) {
     CHECK_EQ(slice_point_.size(), top->size() - 1);
     if (slice_dim_ == 0) {
       CHECK_LE(top->size(), num_);
-    } else {
+    } else if (slice_dim_ == 1) {
       CHECK_LE(top->size(), channels_);
+    } else if (slice_dim_ == 2) {
+      CHECK_LE(top->size(), height_);
     }
     int prev = 0;
     vector<int> slices;
@@ -48,10 +51,17 @@ void SliceLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
         (*top)[i]->Reshape(slices[i], channels_, height_, width_);
          count_ += (*top)[i]->count();
       }
-    } else {
+    } else if (slice_dim_ == 1) {
       slices.push_back(channels_ - prev);
       for (int i = 0; i < top->size(); ++i) {
         (*top)[i]->Reshape(num_, slices[i], height_, width_);
+         count_ += (*top)[i]->count();
+      }
+    } else if (slice_dim_ == 2) {
+      slices.push_back(height_ - prev);
+      for (int i = 0; i < top->size(); ++i) {
+        CHECK_EQ(slices[i], 1) << "slice_dim_ == 2 only supports complete slices";
+        (*top)[i]->Reshape(num_, channels_, slices[i], width_);
          count_ += (*top)[i]->count();
       }
     }
@@ -61,11 +71,16 @@ void SliceLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
           << "Number of top blobs (" << top->size() << ") "
           << "should evenly divide input num ( " << num_ << ")";
       num_ = num_ / top->size();
-    } else {
+    } else if (slice_dim_ == 1) {
       CHECK_EQ(channels_ % top->size(), 0)
           << "Number of top blobs (" << top->size() << ") "
           << "should evenly divide input channels ( " << channels_ << ")";
       channels_ = channels_ / top->size();
+    } else if (slice_dim_ == 2) {
+      CHECK_EQ(height_ % top->size(), 0)
+          << "Number of top blobs (" << top->size() << ") "
+          << "should evenly divide input height ( " << height_ << ")";
+      height_ = height_ / top->size();
     }
     for (int i = 0; i < top->size(); ++i) {
       (*top)[i]->Reshape(num_, channels_, height_, width_);
@@ -100,7 +115,19 @@ void SliceLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       }
       offset_channel += blob->channels();
     }
-  }  // slice_dim_ is guaranteed to be 0 or 1 by SetUp.
+  } else if (slice_dim_ == 2) {
+    const int top_size = top->size();
+    for (int i = 0; i < top_size; ++i) {
+      Dtype* top_data = (*top)[i]->mutable_cpu_data();
+      for (int n = 0; n < num_; ++n) {
+        for (int c = 0; c < channels_; ++c) {
+          // top height_ and width_ are assumed to be 1 from layer SetUp
+          const int idx = n * channels_ + c;
+          top_data[idx] = bottom_data[i + idx * top_size];
+        }
+      }
+    }
+  }  // slice_dim_ is guaranteed to be 0 or 1 or 2 by SetUp.
 }
 
 template <typename Dtype>
@@ -129,7 +156,19 @@ void SliceLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
       }
       offset_channel += blob->channels();
     }
-  }  // slice_dim_ is guaranteed to be 0 or 1 by SetUp.
+  } else if (slice_dim_ == 2) {
+    const int top_size = top.size();
+    for (int i = 0; i < top_size; ++i) {
+      const Dtype* top_diff = top[i]->cpu_diff();
+      for (int n = 0; n < num_; ++n) {
+        for (int c = 0; c < channels_; ++c) {
+          // top height_ and width_ are assumed to be 1 from layer SetUp
+          const int idx = n * channels_ + c;
+          bottom_diff[i + idx * top_size] = top_diff[idx];
+        }
+      }
+    }
+  }  // slice_dim_ is guaranteed to be 0 or 1 or 2 by SetUp.
 }
 
 #ifdef CPU_ONLY

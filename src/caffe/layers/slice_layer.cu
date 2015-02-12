@@ -31,7 +31,9 @@ void SliceLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
       }
       offset_channel += blob->channels();
     }
-  }  // slice_dim_ is guaranteed to be 0 or 1 by SetUp.
+  } else if (slice_dim_ == 2) {
+    Forward_cpu(bottom, top);
+  }  // slice_dim_ is guaranteed to be 0 or 1 or 2 by SetUp.
 }
 
 template <typename Dtype>
@@ -60,7 +62,9 @@ void SliceLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
       }
       offset_channel += blob->channels();
     }
-  }  // slice_dim_ is guaranteed to be 0 or 1 by SetUp.
+  } else if (slice_dim_ == 2) {
+    Backward_cpu(top, propagate_down, bottom);
+  }  // slice_dim_ is guaranteed to be 0 or 1 or 2 by SetUp.
 }
 
 INSTANTIATE_CLASS(SliceLayer);

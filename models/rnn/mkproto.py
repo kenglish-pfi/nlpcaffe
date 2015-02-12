@@ -152,16 +152,16 @@ def get_net(deploy, batch_size):
     add_weight_filler(wordvec_layer.wordvec_param.weight_filler)
 
 
-    input_slice_layer = net.layers.add()
-    input_slice_layer.name = "input_slice_layer"
-    input_slice_layer.type = LayerParameter.SLICE
-    input_slice_layer.slice_param.slice_dim = 0
-    input_slice_layer.bottom.append('wordvec_layer')
+    wordvec_slice_layer = net.layers.add()
+    wordvec_slice_layer.name = "wordvec_slice_layer"
+    wordvec_slice_layer.type = LayerParameter.SLICE
+    wordvec_slice_layer.slice_param.slice_dim = 2
+    wordvec_slice_layer.bottom.append('wordvec_layer')
 
     for i in range(source_length + target_length):
-        input_slice_layer.top.append('wordvec%d' % i)
+        wordvec_slice_layer.top.append('wordvec%d' % i)
         if i != 0:
-            input_slice_layer.slice_param.slice_point.append(i * batch_size)
+            wordvec_slice_layer.slice_param.slice_point.append(i)
 
         if i == 0:
             dummy_layer = net.layers.add()
