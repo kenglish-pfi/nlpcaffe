@@ -26,7 +26,8 @@ t_unknown_symbol = target_vocab_size - 3
 t_start_symbol = target_vocab_size - 2
 t_zero_symbol = target_vocab_size - 1
 
-rand_skip = 11 * 10 ** 6
+data_size_limit = 10**4
+rand_skip = min(data_size_limit - 1, 11 * 10 ** 6)
 train_batch_size = 128
 deploy_batch_size = 10
 
@@ -57,7 +58,7 @@ def make_data():
         with open('/home/stewartr/data/zhen/shuffled_%s.40k.id.en' % phase, 'r') as f1: 
             with open('/home/stewartr/data/zhen/shuffled_%s.40k.id.zh' % phase, 'r') as f2: 
                 #for en, zh in itertools.izip(f1.readlines(), f2.readlines()):
-                for en, zh in itertools.islice(itertools.izip(f1.readlines(), f2.readlines()), 10000):
+                for en, zh in itertools.islice(itertools.izip(f1.readlines(), f2.readlines()), data_size_limit):
                     allX.append(vocab_transform(en, zh))
 
         assert phase != 'train' or len(allX) > rand_skip
@@ -138,7 +139,6 @@ def get_net(deploy, batch_size):
     data_slice_layer.slice_param.slice_dim = 1
     data_slice_layer.bottom.append('data')
     data_slice_layer.top.append('words')
-
     data_slice_layer.top.append('target')
     data_slice_layer.slice_param.slice_point.append(source_length + target_length)
 
