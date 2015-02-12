@@ -14,19 +14,20 @@ target_length = 20
 source_vocab_size = 41000
 target_vocab_size = 41000
 num_categories = 1000
-num_lstm_stacks = 4
+num_lstm_stacks = 2
 category_size = 41
 assert num_categories * category_size == target_vocab_size
 
-s_unknown_symbol = target_vocab_size + source_vocab_size - 3
-s_start_symbol = target_vocab_size + source_vocab_size - 2
-s_zero_symbol = target_vocab_size + source_vocab_size - 1
+s_unknown_symbol = source_vocab_size - 3
+s_start_symbol = source_vocab_size - 2
+s_zero_symbol = source_vocab_size - 1
 
 t_unknown_symbol = target_vocab_size - 3
 t_start_symbol = target_vocab_size - 2
 t_zero_symbol = target_vocab_size - 1
 
-data_size_limit = 10**4
+#data_size_limit = 10**4
+data_size_limit = 11 * 10 ** 6
 rand_skip = min(data_size_limit - 1, 11 * 10 ** 6)
 train_batch_size = 128
 deploy_batch_size = 10
@@ -104,8 +105,8 @@ def add_weight_filler(param):
 
 def get_net(deploy, batch_size):
     net = NetParameter()
-    lstm_num_cells = 500
-    wordvec_length = 500
+    lstm_num_cells = 250
+    wordvec_length = 200
 
     if not deploy:
         train_data = net.layers.add()
@@ -138,31 +139,72 @@ def get_net(deploy, batch_size):
     data_slice_layer.type = LayerParameter.SLICE
     data_slice_layer.slice_param.slice_dim = 1
     data_slice_layer.bottom.append('data')
-    data_slice_layer.top.append('words')
+    data_slice_layer.top.append('source_words')
+    data_slice_layer.top.append('target_words')
     data_slice_layer.top.append('target')
+    data_slice_layer.slice_param.slice_point.append(source_length)
     data_slice_layer.slice_param.slice_point.append(source_length + target_length)
 
-    wordvec_layer = net.layers.add()
-    wordvec_layer.name = "wordvec_layer"
-    wordvec_layer.type = LayerParameter.WORDVEC
-    wordvec_layer.bottom.append('words')
-    wordvec_layer.top.append(wordvec_layer.name)
-    wordvec_layer.wordvec_param.dimension = wordvec_length
-    wordvec_layer.wordvec_param.vocab_size = source_vocab_size + target_vocab_size
-    add_weight_filler(wordvec_layer.wordvec_param.weight_filler)
+    source_wordvec_layer = net.layers.add()
+    source_wordvec_layer.name = "source_wordvec_layer"
+    source_wordvec_layer.type = LayerParameter.WORDVEC
+    source_wordvec_layer.bottom.append('source_words')
+    source_wordvec_layer.top.append(source_wordvec_layer.name)
+    source_wordvec_layer.wordvec_param.dimension = wordvec_length
+    source_wordvec_layer.wordvec_param.vocab_size = source_vocab_size
+    add_weight_filler(source_wordvec_layer.wordvec_param.weight_filler)
 
+    #conv_layer = net.layers.add()
+    #conv_layer.name = "conv_layer"
+    #conv_layer.type = LayerParameter.CONVOLUTION
+    #conv_layer.bottom.append('source_wordvec_layer')
+    #conv_layer.top.append(conv_layer.name)
+    #conv_layer.conv_param.convolution_param.bias_term = False
+    #conv_layer.conv_param.convolution_param.num_output = wordvec_length
+    #conv_layer.conv_param.convolution_param.kernel_h = 5
+    #conv_layer.conv_param.convolution_param.pad_h = 2
+    #conv_layer.conv_param.convolution_param.kernel_w = 1
+    #conv_layer.conv_param.convolution_param.pad_w = 0
 
-    wordvec_slice_layer = net.layers.add()
-    wordvec_slice_layer.name = "wordvec_slice_layer"
-    wordvec_slice_layer.type = LayerParameter.SLICE
-    wordvec_slice_layer.slice_param.slice_dim = 2
-    wordvec_slice_layer.bottom.append('wordvec_layer')
+    #relu_layer = net.layers.add()
+    #relu_layer.name = LayerParameter.RELU
+    #relu_layer.top.append('conv_layer')
+    #relu_layer.bottom.append('conv_layer')
+
+    target_wordvec_layer = net.layers.add()
+    target_wordvec_layer.name = "target_wordvec_layer"
+    target_wordvec_layer.type = LayerParameter.WORDVEC
+    target_wordvec_layer.bottom.append('target_words')
+    target_wordvec_layer.top.append(target_wordvec_layer.name)
+    target_wordvec_layer.wordvec_param.dimension = wordvec_length
+    target_wordvec_layer.wordvec_param.vocab_size = target_vocab_size
+    add_weight_filler(target_wordvec_layer.wordvec_param.weight_filler)
+
+    source_wordvec_slice_layer = net.layers.add()
+    source_wordvec_slice_layer.name = "source_wordvec_slice_layer"
+    source_wordvec_slice_layer.type = LayerParameter.SLICE
+    source_wordvec_slice_layer.slice_param.slice_dim = 2
+    source_wordvec_slice_layer.bottom.append('source_wordvec_layer')
+    for i in range(source_length):
+        source_wordvec_slice_layer.top.append('source_wordvec%d' % i)
+        if i != 0:
+            source_wordvec_slice_layer.slice_param.slice_point.append(i)
+
+    target_wordvec_slice_layer = net.layers.add()
+    target_wordvec_slice_layer.name = "target_wordvec_slice_layer"
+    target_wordvec_slice_layer.type = LayerParameter.SLICE
+    target_wordvec_slice_layer.slice_param.slice_dim = 2
+    target_wordvec_slice_layer.bottom.append('target_wordvec_layer')
+    for i in range(target_length):
+        target_wordvec_slice_layer.top.append('target_wordvec%d' % i)
+        if i != 0:
+            target_wordvec_slice_layer.slice_param.slice_point.append(i)
+
 
     for i in range(source_length + target_length):
-        wordvec_slice_layer.top.append('wordvec%d' % i)
-        if i != 0:
-            wordvec_slice_layer.slice_param.slice_point.append(i)
-
+        source_or_target = 'source' if i < source_length else 'target'
+        source_target_i = i if i < source_length else i - source_length
+            
         if i == 0:
             dummy_layer = net.layers.add()
             dummy_layer.name = 'dummy_layer'
@@ -191,7 +233,7 @@ def get_net(deploy, batch_size):
 
             concat_layer.top.append(concat_layer.name)
             concat_layer.type = LayerParameter.CONCAT
-            concat_layer.bottom.append('wordvec%d' % i)
+            concat_layer.bottom.append('%s_wordvec%d' % (source_or_target, source_target_i))
             if j == 1:
                 concat_layer.bottom.append('lstm%d_hidden%d' % (j - 1, i))
             if i == 0:
@@ -208,7 +250,7 @@ def get_net(deploy, batch_size):
             add_weight_filler(lstm_layer.lstm_param.output_gate_weight_filler)
 
             for k in range(4):
-                lstm_layer.param.append('lstm%d_param%d' % (j, k))
+                lstm_layer.param.append('lstm%d_param_%s_%d' % (j, source_or_target, k))
             lstm_layer.top.append('lstm%d_hidden%d' % (j, i))
             lstm_layer.top.append('lstm%d_mem_cell%d' % (j, i))
             lstm_layer.bottom.append('concat%d_layer%d' % (j, i))
