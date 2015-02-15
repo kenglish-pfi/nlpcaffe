@@ -16,10 +16,10 @@ void BatchnormLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   // Initialize the beta and gamma blobs to 1
   this->blobs_.resize(2);
   for (int i = 0; i < 2; ++i) {
-   this->blobs_[i].reset(new Blob<Dtype>(
-     1, bottom_size_, 1, 1));
-   caffe_set(this->blobs_[i]->count(), i == 0 ? Dtype(1) : Dtype(0),
-     this->blobs_[i]->mutable_cpu_data());
+    this->blobs_[i].reset(new Blob<Dtype>(
+      1, bottom_size_, 1, 1));
+    caffe_set(this->blobs_[i]->count(), i == 0 ? Dtype(1) : Dtype(0),
+      this->blobs_[i]->mutable_cpu_data());
   }
 
   batch_mean_.Reshape(1, bottom_size_, 1, 1);
@@ -91,7 +91,9 @@ void BatchnormLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   caffe_set((*bottom)[0]->count(), Dtype(0), bottom_diff);
   caffe_set(this->blobs_[0]->count(), Dtype(0), gamma_diff);
   caffe_set(this->blobs_[1]->count(), Dtype(0), beta_diff);
-  
+  caffe_set(bottom_size_, Dtype(0), dl_dvar);
+  caffe_set(bottom_size_, Dtype(0), dl_dmean);
+
   for (int n = 0; n < num_; ++n) {
     // fill gamma_diff
     caffe_sub(bottom_size_, top_data + top[0]->offset(n), beta_data,
@@ -105,7 +107,7 @@ void BatchnormLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
     // fill beta_diff
     caffe_add(bottom_size_, top_diff + top[0]->offset(n), beta_diff, beta_diff);
   }
-  
+
   // fill bottom_diff direct term
   for (int n = 0; n < num_; ++n) {
     caffe_mul(bottom_size_, top_diff + top[0]->offset(n), gamma_data, buffer);
@@ -115,7 +117,6 @@ void BatchnormLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   }
 
   // fill bottom_diff variance contribution term
-  caffe_set(bottom_size_, Dtype(0), dl_dvar);
   for (int n = 0; n < num_; ++n) {
     caffe_sub(bottom_size_, top_data + top[0]->offset(n), beta_data, buffer);
     caffe_mul(bottom_size_, buffer, variance_data, buffer);
@@ -146,7 +147,6 @@ void BatchnormLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
     caffe_add(bottom_size_, dl_dmean, bottom_diff + (*bottom)[0]->offset(n),
         bottom_diff + (*bottom)[0]->offset(n));
   }
-
 }
 
 #ifdef CPU_ONLY
