@@ -185,7 +185,7 @@ void Solver<Dtype>::Solve(const char* resume_file) {
   for (; iter_ < param_.max_iter(); ++iter_) {
     // Save a snapshot if needed.
     if (param_.snapshot() && iter_ > start_iter &&
-        iter_ % param_.snapshot() == 0) {
+        iter_ % (iter_ < param_.snapshot() ? param_.snapshot() / 10 : param_.snapshot()) == 0) {
       Snapshot();
     }
 
