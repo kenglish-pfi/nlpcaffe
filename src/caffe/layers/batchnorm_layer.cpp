@@ -25,7 +25,7 @@ void BatchnormLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   batch_mean_.Reshape(1, bottom_size_, 1, 1);
   buffer_blob_.Reshape(1, bottom_size_, 1, 1);
   batch_variance_.Reshape(1, bottom_size_, 1, 1);
-  var_epsilon_ = Dtype(0.1);
+  var_epsilon_ = Dtype(0.00001);
 
   // Propagate gradients to the parameters (as directed by backward pass).
   this->param_propagate_down_.resize(this->blobs_.size(), true);
