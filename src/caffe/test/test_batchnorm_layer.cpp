@@ -48,16 +48,16 @@ class BatchnormLayerTest : public MultiDeviceTest<TypeParam> {
 
 TYPED_TEST_CASE(BatchnormLayerTest, TestDtypesAndDevices);
 
-TYPED_TEST(BatchnormLayerTest, TestSetupAcrossChannels) {
-  typedef typename TypeParam::Dtype Dtype;
-  LayerParameter layer_param;
-  BatchnormLayer<Dtype> layer(layer_param);
-  layer.SetUp(this->blob_bottom_vec_, &(this->blob_top_vec_));
-  EXPECT_EQ(this->blob_top_->num(), BATCH_SIZE);
-  EXPECT_EQ(this->blob_top_->channels(), INPUT_DATA_SIZE);
-  EXPECT_EQ(this->blob_top_->height(), 1);
-  EXPECT_EQ(this->blob_top_->width(), 1);
-}
+//TYPED_TEST(BatchnormLayerTest, TestSetupAcrossChannels) {
+  //typedef typename TypeParam::Dtype Dtype;
+  //LayerParameter layer_param;
+  //BatchnormLayer<Dtype> layer(layer_param);
+  //layer.SetUp(this->blob_bottom_vec_, &(this->blob_top_vec_));
+  //EXPECT_EQ(this->blob_top_->num(), BATCH_SIZE);
+  //EXPECT_EQ(this->blob_top_->channels(), INPUT_DATA_SIZE);
+  //EXPECT_EQ(this->blob_top_->height(), 1);
+  //EXPECT_EQ(this->blob_top_->width(), 1);
+//}
 
 TYPED_TEST(BatchnormLayerTest, TestGradientAcrossChannels) {
   typedef typename TypeParam::Dtype Dtype;

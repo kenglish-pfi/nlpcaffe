@@ -10,8 +10,14 @@ namespace caffe {
 template <typename Dtype>
 void BatchnormLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       vector<Blob<Dtype>*>* top) {
-  num_ = bottom[0]->num();
-  bottom_size_ = bottom[0]->count() / bottom[0]->num();
+  BatchnormParameter batchnorm_param = this->layer_param_.batchnorm_param();
+  if (batchnorm_param.norm_dim() == 0) {
+    num_ = bottom[0]->num();
+    bottom_size_ = bottom[0]->count() / bottom[0]->num();
+  } else {
+    num_ = bottom[0]->num() * bottom[0]->channels();
+    bottom_size_ = bottom[0]->count() / bottom[0]->num() / bottom[0]->channels();
+  }
 
   // Initialize the beta and gamma blobs to 1
   this->blobs_.resize(2);
@@ -31,6 +37,10 @@ void BatchnormLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   this->param_propagate_down_.resize(this->blobs_.size(), true);
 }
 
+inline int offset(int n, int bottom_size) {
+  return bottom_size * n;
+}
+
 template <typename Dtype>
 void BatchnormLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     vector<Blob<Dtype>*>* top) {
@@ -47,9 +57,9 @@ void BatchnormLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   caffe_set(bottom_size_, Dtype(0), variance_data);
 
   for (int n = 0; n < num_; ++n) {
-    caffe_add(bottom_size_, bottom_data + bottom[0]->offset(n), mean_data,
+    caffe_add(bottom_size_, bottom_data + offset(n, bottom_size_), mean_data,
         mean_data);
-    caffe_sqr(bottom_size_, bottom_data + bottom[0]->offset(n), buffer);
+    caffe_sqr(bottom_size_, bottom_data + offset(n, bottom_size_), buffer);
     caffe_add(bottom_size_, buffer, variance_data, variance_data);
   }
   caffe_cpu_scale(bottom_size_, Dtype(1) / Dtype(num_), mean_data, mean_data);
@@ -62,11 +72,11 @@ void BatchnormLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   caffe_powx(bottom_size_, variance_data, Dtype(0.5), variance_data);
 
   for (int n = 0; n < num_; ++n) {
-    caffe_sub(bottom_size_, bottom_data + bottom[0]->offset(n), mean_data, buffer);
+    caffe_sub(bottom_size_, bottom_data + offset(n, bottom_size_), mean_data, buffer);
     caffe_div(bottom_size_, buffer, variance_data, buffer);
     caffe_mul(bottom_size_, buffer, gamma_data, buffer);
     caffe_add(bottom_size_, buffer, beta_data,
-        top_data + (*top)[0]->offset(n));
+        top_data + offset(n, bottom_size_));
   }
 }
 
@@ -96,56 +106,56 @@ void BatchnormLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 
   for (int n = 0; n < num_; ++n) {
     // fill gamma_diff
-    caffe_sub(bottom_size_, top_data + top[0]->offset(n), beta_data,
+    caffe_sub(bottom_size_, top_data + offset(n, bottom_size_), beta_data,
         buffer);
     caffe_div(bottom_size_, buffer, gamma_data,
         buffer);
-    caffe_mul(bottom_size_, buffer, top_diff + top[0]->offset(n),
+    caffe_mul(bottom_size_, buffer, top_diff + offset(n, bottom_size_),
         buffer);
     caffe_add(bottom_size_, buffer, gamma_diff, gamma_diff);
 
     // fill beta_diff
-    caffe_add(bottom_size_, top_diff + top[0]->offset(n), beta_diff, beta_diff);
+    caffe_add(bottom_size_, top_diff + offset(n, bottom_size_), beta_diff, beta_diff);
   }
 
   // fill bottom_diff direct term
   for (int n = 0; n < num_; ++n) {
-    caffe_mul(bottom_size_, top_diff + top[0]->offset(n), gamma_data, buffer);
+    caffe_mul(bottom_size_, top_diff + offset(n, bottom_size_), gamma_data, buffer);
     caffe_div(bottom_size_, buffer, variance_data, buffer);
-    caffe_add(bottom_size_, buffer, bottom_diff + (*bottom)[0]->offset(n),
-        bottom_diff + (*bottom)[0]->offset(n));
+    caffe_add(bottom_size_, buffer, bottom_diff + offset(n, bottom_size_),
+        bottom_diff + offset(n, bottom_size_));
   }
 
   // fill bottom_diff variance contribution term
   for (int n = 0; n < num_; ++n) {
-    caffe_sub(bottom_size_, top_data + top[0]->offset(n), beta_data, buffer);
+    caffe_sub(bottom_size_, top_data + offset(n, bottom_size_), beta_data, buffer);
     caffe_mul(bottom_size_, buffer, variance_data, buffer);
-    caffe_mul(bottom_size_, buffer, top_diff + top[0]->offset(n), buffer);
+    caffe_mul(bottom_size_, buffer, top_diff + offset(n, bottom_size_), buffer);
     caffe_add(bottom_size_, buffer, dl_dvar, dl_dvar);
   }
   caffe_powx(bottom_size_, variance_data, Dtype(-3.0), buffer);
   caffe_mul(bottom_size_, dl_dvar, buffer, dl_dvar);
   caffe_cpu_scale(bottom_size_, Dtype(-0.5), dl_dvar, dl_dvar);
   for (int n = 0; n < num_; ++n) {
-    caffe_sub(bottom_size_, top_data + top[0]->offset(n), beta_data, buffer);
+    caffe_sub(bottom_size_, top_data + offset(n, bottom_size_), beta_data, buffer);
     caffe_div(bottom_size_, buffer, gamma_data, buffer);
     caffe_mul(bottom_size_, buffer, variance_data, buffer);
     caffe_cpu_scale(bottom_size_, Dtype(2) / Dtype(num_), buffer, buffer);
     caffe_mul(bottom_size_, buffer, dl_dvar, buffer);
-    caffe_add(bottom_size_, buffer, bottom_diff + (*bottom)[0]->offset(n),
-        bottom_diff + (*bottom)[0]->offset(n));
+    caffe_add(bottom_size_, buffer, bottom_diff + offset(n, bottom_size_),
+        bottom_diff + offset(n, bottom_size_));
   }
 
   // fill bottom_diff mean contribution term
   for (int n = 0; n < num_; ++n) {
-    caffe_mul(bottom_size_, top_diff + top[0]->offset(n), gamma_data, buffer);
+    caffe_mul(bottom_size_, top_diff + offset(n, bottom_size_), gamma_data, buffer);
     caffe_div(bottom_size_, buffer, variance_data, buffer);
     caffe_sub(bottom_size_, dl_dmean, buffer, dl_dmean);
   }
   caffe_cpu_scale(bottom_size_, Dtype(1) / Dtype(num_), dl_dmean, dl_dmean);
   for (int n = 0; n < num_; ++n) {
-    caffe_add(bottom_size_, dl_dmean, bottom_diff + (*bottom)[0]->offset(n),
-        bottom_diff + (*bottom)[0]->offset(n));
+    caffe_add(bottom_size_, dl_dmean, bottom_diff + offset(n, bottom_size_),
+        bottom_diff + offset(n, bottom_size_));
   }
 }
 
