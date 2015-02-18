@@ -74,10 +74,7 @@ def make_data():
                 if i % 1000 == 0:
                     sys.stderr.write('%s\r' % i); sys.stderr.flush()
                 for j in range(source_length):
-                    if j == 0:
-                        datum.float_data.append(s_start_symbol)
-                    else:
-                        datum.float_data.append(source_line[::-1][j - 1])
+                    datum.float_data.append(source_line[::-1][j])
                 for j in range(target_length):
                     if j == 0:
                         datum.float_data.append(t_start_symbol)
@@ -97,6 +94,16 @@ def display_layer(net, name):
     layer.type = LayerParameter.ELTWISE
     layer.eltwise_param.coeff.append(0.5)
     layer.eltwise_param.coeff.append(0.5)
+
+def add_batchnorm(blob_name, net):
+    batchnorm_layer = net.layers.add()
+    batchnorm_layer.name = 'batchnorm_%s' % blob_name
+    batchnorm_layer.type = LayerParameter.BATCHNORM
+    for k in range(2):
+        batchnorm_layer.param.append('batchnorm_param_%s' % blob_name)
+    batchnorm_layer.bottom.append(blob_name)
+    batchnorm_layer.top.append(blob_name)
+    batchnorm_layer.batchnorm_param.norm_dim = 1
 
 def add_weight_filler(param):
     param.type = 'uniform'
@@ -258,6 +265,8 @@ def get_net(deploy, batch_size):
                 lstm_layer.bottom.append('dummy_mem_cell')
             else:
                 lstm_layer.bottom.append('lstm%d_mem_cell%d' % (j, i - 1))
+            #if i == 0:
+                #add_batchnorm(lstm_layer.top[1], net)
 
     hidden_concat_layer = net.layers.add()
     hidden_concat_layer.type = LayerParameter.CONCAT
