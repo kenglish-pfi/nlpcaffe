@@ -38,6 +38,9 @@ void ConcatLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
     }
   }
   (*top)[0]->Reshape(num_, channels_, height_, width_);
+  if (concat_dim_ == 1) {
+    top_buffer_.Reshape(num_, channels_, height_, width_);
+  }
   CHECK_EQ(count_, (*top)[0]->count());
 }
 

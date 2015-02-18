@@ -20,16 +20,17 @@ void ConcatLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
     }
   } else if (concat_dim_ == 1) {
     int offset_channel = 0;
+    Dtype* top_buffer_data = top_buffer_.mutable_gpu_data();
     for (int i = 0; i < bottom.size(); ++i) {
       const Dtype* bottom_data = bottom[i]->gpu_data();
       int num_elem =
-        bottom[i]->channels() * bottom[i]->height() * bottom[i]->width();
-      for (int n = 0; n < num_; ++n) {
-        caffe_copy(num_elem, bottom_data+bottom[i]->offset(n),
-          top_data + (*top)[0]->offset(n, offset_channel));
-      }
+        bottom[i]->channels() * height_ * width_;
+      int top_offset = num_ * height_ * width_ * offset_channel;
+      caffe_gpu_transpose(num_, num_elem, bottom_data, top_buffer_data + top_offset);
       offset_channel += bottom[i]->channels();
     }
+    int total_num_elem = height_ * width_ * offset_channel;
+    caffe_gpu_transpose(total_num_elem, num_, top_buffer_data, top_data);
   } else if (concat_dim_ == 2) {
     int offset_height = 0;
     for (int i = 0; i < bottom.size(); ++i) {

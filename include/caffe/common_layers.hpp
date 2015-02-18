@@ -142,6 +142,7 @@ class ConcatLayer : public Layer<Dtype> {
       const vector<bool>& propagate_down, vector<Blob<Dtype>*>* bottom);
 
   Blob<Dtype> col_bob_;
+  Blob<Dtype> top_buffer_;
   int count_;
   int num_;
   int channels_;
