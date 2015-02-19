@@ -68,17 +68,17 @@ void ConcatLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
     }
   } else if (concat_dim_ == 1) {
     int offset_channel = 0;
+    Dtype* top_buffer_diff = top_buffer_.mutable_gpu_diff();
+    int total_num_elem = height_ * width_ * channels_;
+    caffe_gpu_transpose(num_, total_num_elem, top_diff, top_buffer_diff);
     for (int i = 0; i < bottom->size(); ++i) {
-      Blob<Dtype>* blob = (*bottom)[i];
       if (propagate_down[i]) {
-        Dtype* bottom_diff = blob->mutable_gpu_diff();
-        int num_elem = blob->channels()*blob->height()*blob->width();
-        for (int n = 0; n < num_; ++n) {
-          caffe_copy(num_elem, top_diff + top[0]->offset(n, offset_channel),
-                         bottom_diff + blob->offset(n));
-        }
+        Dtype* bottom_diff = (*bottom)[i]->mutable_gpu_diff();
+        int top_offset = num_ * height_ * width_ * offset_channel;
+        int num_elem = (*bottom)[i]->channels() * height_ * width_;
+        caffe_gpu_transpose(num_elem, num_, top_buffer_diff + top_offset, bottom_diff);
       }
-      offset_channel += blob->channels();
+      offset_channel += (*bottom)[i]->channels();
     }
   } else if (concat_dim_ == 2) {
     int offset_width = 0;
