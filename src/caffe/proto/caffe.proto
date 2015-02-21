@@ -420,6 +420,7 @@ message ConvolutionParameter {
 
 message BatchnormParameter {
   optional uint32 norm_dim = 1 [default = 0];
+  optional float var_epsilon = 2 [default = 0.001];
 }
 
 message LstmParameter {
