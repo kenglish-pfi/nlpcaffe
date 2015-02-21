@@ -217,27 +217,30 @@ void DataLayer<Dtype>::InternalThreadEntry() {
     }
 
 
-    // go to the next iter
-    switch (this->layer_param_.data_param().backend()) {
-    case DataParameter_DB_LEVELDB:
-      iter_->Next();
-      if (!iter_->Valid()) {
-        // We have reached the end. Restart from the first.
-        DLOG(INFO) << "Restarting data prefetching from start.";
-        iter_->SeekToFirst();
+    // skip random number of entries for batchnormalization
+    for (int i = 0; i < caffe_rng_rand() % 100; ++i) {
+      // go to the next iter
+      switch (this->layer_param_.data_param().backend()) {
+      case DataParameter_DB_LEVELDB:
+        iter_->Next();
+        if (!iter_->Valid()) {
+          // We have reached the end. Restart from the first.
+          DLOG(INFO) << "Restarting data prefetching from start.";
+          iter_->SeekToFirst();
+        }
+        break;
+      case DataParameter_DB_LMDB:
+        if (mdb_cursor_get(mdb_cursor_, &mdb_key_,
+                &mdb_value_, MDB_NEXT) != MDB_SUCCESS) {
+          // We have reached the end. Restart from the first.
+          DLOG(INFO) << "Restarting data prefetching from start.";
+          CHECK_EQ(mdb_cursor_get(mdb_cursor_, &mdb_key_,
+                  &mdb_value_, MDB_FIRST), MDB_SUCCESS);
+        }
+        break;
+      default:
+        LOG(FATAL) << "Unknown database backend";
       }
-      break;
-    case DataParameter_DB_LMDB:
-      if (mdb_cursor_get(mdb_cursor_, &mdb_key_,
-              &mdb_value_, MDB_NEXT) != MDB_SUCCESS) {
-        // We have reached the end. Restart from the first.
-        DLOG(INFO) << "Restarting data prefetching from start.";
-        CHECK_EQ(mdb_cursor_get(mdb_cursor_, &mdb_key_,
-                &mdb_value_, MDB_FIRST), MDB_SUCCESS);
-      }
-      break;
-    default:
-      LOG(FATAL) << "Unknown database backend";
     }
   }
 }
