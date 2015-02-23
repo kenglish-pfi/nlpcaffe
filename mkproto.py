@@ -1,13 +1,17 @@
 #!/usr/bin/env python
-import caffe_pb2
-from caffe_pb2 import NetParameter, LayerParameter, DataParameter, SolverParameter
 
+import os
 import sys
 import lmdb
 import random
-from caffe_pb2 import Datum
 import subprocess
 import itertools
+import argparse
+import sys
+sys.path.append('python/caffe/proto'); import caffe_pb2
+
+from caffe_pb2 import NetParameter, LayerParameter, DataParameter, SolverParameter
+from caffe_pb2 import Datum
 
 source_length = 2
 target_length = 20
@@ -32,24 +36,6 @@ data_size_limit = 11 * 10 ** 6
 rand_skip = min(data_size_limit - 1, 11 * 10 ** 6)
 train_batch_size = 128
 deploy_batch_size = 10
-
-def make_solver():
-    solver = SolverParameter()
-    solver.net = "models/rnn/train_val.prototxt"
-    solver.test_iter.append(10)
-    solver.test_interval = 500
-    solver.base_lr = 5.0
-    solver.weight_decay = 0.0000
-    solver.lr_policy = "fixed"
-    solver.display = 20
-    solver.momentum = 0.5
-    solver.max_iter = 1000000000
-    solver.max_grad = 1.0
-    solver.snapshot = 10000
-    solver.snapshot_prefix = "/snapshots/rnn"
-    solver.random_seed = 17
-    solver.solver_mode = SolverParameter.GPU
-    print solver
 
 def make_data():
     for phase in ['train', 'valid', 'test']:
@@ -104,6 +90,24 @@ def make_data():
                     datum.float_data.append(target_line[j])
                 key = str(i)
                 txn.put(key, datum.SerializeToString())
+
+def get_solver():
+    solver = SolverParameter()
+    solver.net = "models/rnn/train_val.prototxt"
+    solver.test_iter.append(10)
+    solver.test_interval = 500
+    solver.base_lr = 5.0
+    solver.weight_decay = 0.0000
+    solver.lr_policy = "fixed"
+    solver.display = 20
+    solver.momentum = 0.5
+    solver.max_iter = 1000000000
+    solver.max_grad = 1.0
+    solver.snapshot = 10000
+    solver.snapshot_prefix = "/snapshots/%s" % (os.path.dirname(os.path.realpath(__file__)).split('/')[-1])
+    solver.random_seed = 17
+    solver.solver_mode = SolverParameter.GPU
+    return solver
 
 def display_layer(net, name):
     layer = net.layers.add()
@@ -170,23 +174,6 @@ def get_net(deploy, batch_size):
     source_wordvec_layer.wordvec_param.dimension = wordvec_length
     source_wordvec_layer.wordvec_param.vocab_size = source_vocab_size
     add_weight_filler(source_wordvec_layer.wordvec_param.weight_filler)
-
-    #conv_layer = net.layers.add()
-    #conv_layer.name = "conv_layer"
-    #conv_layer.type = LayerParameter.CONVOLUTION
-    #conv_layer.bottom.append('source_wordvec_layer')
-    #conv_layer.top.append(conv_layer.name)
-    #conv_layer.conv_param.convolution_param.bias_term = False
-    #conv_layer.conv_param.convolution_param.num_output = wordvec_length
-    #conv_layer.conv_param.convolution_param.kernel_h = 5
-    #conv_layer.conv_param.convolution_param.pad_h = 2
-    #conv_layer.conv_param.convolution_param.kernel_w = 1
-    #conv_layer.conv_param.convolution_param.pad_w = 0
-
-    #relu_layer = net.layers.add()
-    #relu_layer.name = LayerParameter.RELU
-    #relu_layer.top.append('conv_layer')
-    #relu_layer.bottom.append('conv_layer')
 
     target_wordvec_layer = net.layers.add()
     target_wordvec_layer.name = "target_wordvec_layer"
@@ -385,13 +372,14 @@ def get_net(deploy, batch_size):
 
     return net
 
-def main():
-    if '--make_data' in sys.argv:
-        make_data()
+def write_solver():
+    with open('./models/rnn/solver.prototxt', 'w') as f:
+        f.write(str(get_solver()))
 
+def write_net():
     with open('./models/rnn/train_val.prototxt', 'w') as f:
         f.write('name: "RussellNet"\n')
-        f.write(str(get_net(False, train_batch_size)));
+        f.write(str(get_net(False, train_batch_size)))
 
     with open('./models/rnn/deploy.prototxt', 'w') as f:
         f.write('name: "RussellNet"\n')
@@ -404,5 +392,16 @@ input_dim: 1
 
 ''' % (deploy_batch_size, source_length + 2 * target_length))
         f.write(str(get_net(True, deploy_batch_size)))
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--make_data', action='store_true')
+args = parser.parse_args()
+
+def main():
+    if args.make_data:
+        make_data()
+    write_solver()
+    write_net()
+
 if __name__ == '__main__':
     main()
