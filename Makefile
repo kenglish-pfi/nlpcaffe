@@ -1,6 +1,6 @@
 # The makefile for caffe. Pretty hacky.
 PROJECT := caffe
-CUSTOM_CXX := /usr/local/bin/mpic++
+#CUSTOM_CXX := /usr/local/bin/mpic++
 
 CONFIG_FILE := Makefile.config
 include $(CONFIG_FILE)
@@ -168,6 +168,7 @@ ifneq ($(CPU_ONLY), 1)
 endif
 LIBRARIES += glog gflags protobuf leveldb snappy \
 	lmdb \
+	mpi \
 	boost_system \
 	hdf5_hl hdf5 \
 	opencv_core opencv_highgui opencv_imgproc pthread
