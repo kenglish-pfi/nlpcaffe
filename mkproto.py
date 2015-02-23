@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import config
 import os
 import sys
 import lmdb
@@ -30,9 +31,9 @@ t_unknown_symbol = target_vocab_size - 3
 t_start_symbol = target_vocab_size - 2
 t_zero_symbol = target_vocab_size - 1
 
-#data_size_limit = 4*10**4
+data_size_limit = 4*10**4
 #data_size_limit = 11 * 10 ** 6
-data_size_limit = 11 * 10 ** 6
+#data_size_limit = 11 * 10 ** 6
 rand_skip = min(data_size_limit - 1, 11 * 10 ** 6)
 train_batch_size = 128
 deploy_batch_size = 10
@@ -60,10 +61,8 @@ def make_data():
             return [source_line, target_line]
 
         allX = []
-        with open('/home/stewartr/data/zhen/shuffled_%s.40k.id.en' % phase, 'r') as f1: 
-        #with open('/home/stewartr/data/penn/%s_indices.txt' % phase, 'r') as f1: 
-            with open('/home/stewartr/data/zhen/shuffled_%s.40k.id.zh' % phase, 'r') as f2: 
-                #for en, zh in itertools.izip(f1.readlines(), f2.readlines()):
+        with open('%s/zhen/shuffled_%s.40k.id.en' % (config.data_dir, phase), 'r') as f1: 
+            with open('%s/zhen/shuffled_%s.40k.id.zh' % (config.data_dir, phase), 'r') as f2: 
                 for en, zh in itertools.islice(itertools.izip(f1.readlines(), f2.readlines()), data_size_limit):
                     allX.append(vocab_transform(zh, en))
 

@@ -85,3 +85,5 @@ docs/dev
 
 # CMake generated files
 *.gen.cmake
+
+config.py
