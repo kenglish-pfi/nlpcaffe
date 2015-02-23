@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import caffe_pb2
-from caffe_pb2 import NetParameter, LayerParameter, DataParameter
+from caffe_pb2 import NetParameter, LayerParameter, DataParameter, SolverParameter
 
 import sys
 import lmdb
@@ -14,7 +14,7 @@ target_length = 20
 source_vocab_size = 41000
 target_vocab_size = 41000
 num_categories = 1000
-num_lstm_stacks = 1
+num_lstm_stacks = 4
 category_size = 41
 assert num_categories * category_size == target_vocab_size
 
@@ -33,6 +33,23 @@ rand_skip = min(data_size_limit - 1, 11 * 10 ** 6)
 train_batch_size = 128
 deploy_batch_size = 10
 
+def make_solver():
+    solver = SolverParameter()
+    solver.net = "models/rnn/train_val.prototxt"
+    solver.test_iter.append(10)
+    solver.test_interval = 500
+    solver.base_lr = 5.0
+    solver.weight_decay = 0.0000
+    solver.lr_policy = "fixed"
+    solver.display = 20
+    solver.momentum = 0.5
+    solver.max_iter = 1000000000
+    solver.max_grad = 1.0
+    solver.snapshot = 10000
+    solver.snapshot_prefix = "/snapshots/rnn"
+    solver.random_seed = 17
+    solver.solver_mode = SolverParameter.GPU
+    print solver
 
 def make_data():
     for phase in ['train', 'valid', 'test']:
@@ -105,8 +122,8 @@ def add_weight_filler(param, max_value=0.07):
 
 def get_net(deploy, batch_size):
     net = NetParameter()
-    lstm_num_cells = 250
-    wordvec_length = 200
+    lstm_num_cells = 500
+    wordvec_length = 500
 
     if not deploy:
         train_data = net.layers.add()
