@@ -208,6 +208,8 @@ class Net {
   vector<string> param_display_names_;
   vector<pair<int, int> > param_layer_indices_;
   map<string, int> param_names_index_;
+  /// map of param owners id to master_diff id
+  map<int, int> master_diffs_index_;
   /// blob indices for the input and the output of the net
   vector<int> net_input_blob_indices_;
   vector<int> net_output_blob_indices_;
@@ -216,6 +218,8 @@ class Net {
   string name_;
   /// The parameters in the network.
   vector<shared_ptr<Blob<Dtype> > > params_;
+  /// The master diffs for shared parameters
+  vector<shared_ptr<Blob<Dtype> > > master_diffs_;
   /// the learning rate multipliers
   vector<float> params_lr_;
   /// the weight decay multipliers

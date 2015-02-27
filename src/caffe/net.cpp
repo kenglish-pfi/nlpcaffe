@@ -422,13 +422,21 @@ void Net<Dtype>::AppendParam(const NetParameter& param, const int layer_id,
     // This layer "owns" this parameter blob -- it is either anonymous
     // (i.e., not given a param_name) or explicitly given a name that we
     // haven't already seen.
-    param_owners_.push_back(-1);
     if (param_size) {
       param_names_index_[param_name] = net_param_id;
+      param_owners_.push_back(net_param_id);
+      shared_ptr<Blob<Dtype> > new_master_diff(new Blob<Dtype>());
+      new_master_diff->ReshapeLike(*params_[net_param_id]);
+      master_diffs_index_[net_param_id] = master_diffs_.size();
+      master_diffs_.push_back(new_master_diff);
+    } else {
+      param_owners_.push_back(-1);
+      master_diffs_index_[net_param_id] = -1;
     }
   } else {
     // Named param blob with name we've seen before: share params
     const int owner_net_param_id = param_names_index_[param_name];
+    master_diffs_index_[net_param_id] = master_diffs_index_[owner_net_param_id];
     param_owners_.push_back(owner_net_param_id);
     const pair<int, int>& owner_index =
         param_layer_indices_[owner_net_param_id];
@@ -459,6 +467,8 @@ void Net<Dtype>::AppendParam(const NetParameter& param, const int layer_id,
           << "Shared parameter blobs must have the same width.";
     }
     layers_[layer_id]->blobs()[param_id]->ShareData(
+        *layers_[owner_layer_id]->blobs()[owner_param_id]);
+    layers_[layer_id]->blobs()[param_id]->ShareDiff(
         *layers_[owner_layer_id]->blobs()[owner_param_id]);
   }
 }
@@ -568,11 +578,34 @@ template <typename Dtype>
 void Net<Dtype>::BackwardFromTo(int start, int end) {
   CHECK_GE(end, 0);
   CHECK_LT(start, layers_.size());
+  int net_param_id = params_.size() - 1;
   for (int i = start; i >= end; --i) {
     if (layer_need_backward_[i]) {
       layers_[i]->Backward(
           top_vecs_[i], bottom_need_backward_[i], &bottom_vecs_[i]);
       if (debug_info_) { BackwardDebugInfo(i); }
+      for (int j = layers_[i]->blobs().size() - 1; j >= 0; --j) {
+        CHECK_EQ(param_layer_indices_[net_param_id].first, i);
+        CHECK_EQ(param_layer_indices_[net_param_id].second, j);
+        const int master_id = master_diffs_index_[net_param_id];
+        if (master_id >= 0) {
+#ifdef CPU_ONLY
+          caffe_add(master_diffs_[master_id]->count(),
+              layers_[i]->blobs()[j]->cpu_diff(),
+              master_diffs_[master_id]->cpu_diff(),
+              master_diffs_[master_id]->mutable_cpu_diff());
+#else
+          caffe_gpu_add(master_diffs_[master_id]->count(),
+              layers_[i]->blobs()[j]->gpu_diff(),
+              master_diffs_[master_id]->gpu_diff(),
+              master_diffs_[master_id]->mutable_gpu_diff());
+#endif
+        }
+        net_param_id--;
+      }
+    }
+    else {
+        net_param_id = net_param_id - layers_[i]->blobs().size();
     }
   }
 }
@@ -619,7 +652,7 @@ void Net<Dtype>::UpdateDebugInfo(const int param_id) {
   const string& layer_name = layer_names_[param_layer_indices_[param_id].first];
   const string& param_display_name = param_display_names_[param_id];
   const Dtype diff_abs_val_mean = blob.asum_diff() / blob.count();
-  if (param_owner < 0) {
+  if (param_owner < 0 || param_owner == param_id) {
     const Dtype data_abs_val_mean = blob.asum_data() / blob.count();
     LOG(INFO) << "    [Update] Layer " << layer_name
         << ", param " << param_display_name
@@ -748,26 +781,28 @@ void Net<Dtype>::ToProto(NetParameter* param, bool write_diff) {
 
 template <typename Dtype>
 void Net<Dtype>::Update(const bool sync_data, const bool clip_grads, const Dtype max_grad) {
-  // First, accumulate the diffs of any shared parameters into their owner's
-  // diff. (Assumes that the learning rate, weight decay, etc. have already been
-  // accounted for in the current diff.)
-  for (int i = 0; i < params_.size(); ++i) {
-    if (param_owners_[i] < 0) { continue; }
-    if (debug_info_) { UpdateDebugInfo(i); }
+  // Set the diff of the first layer containing a shared parameter to sum of
+  // the diffs of all layers containing that shared parameter (Assumes that
+  // the learning rate, weight decay, etc. have already been accounted for in
+  // the current diff.)
+  for (int i = params_.size() - 1; i >= 0; --i) {
+    if (param_owners_[i] != i) { continue; }
     const int count = params_[i]->count();
-    const Dtype* this_diff;
-    Dtype* owner_diff;
+    Dtype* this_diff;
+    Dtype* master_diff;
     switch (Caffe::mode()) {
     case Caffe::CPU:
-      this_diff = params_[i]->cpu_diff();
-      owner_diff = params_[param_owners_[i]]->mutable_cpu_diff();
-      caffe_add(count, this_diff, owner_diff, owner_diff);
+      this_diff = params_[i]->mutable_cpu_diff();
+      master_diff = master_diffs_[master_diffs_index_[i]]->mutable_cpu_diff();
+      caffe_copy(count, master_diff, this_diff);
+      caffe_set(count, Dtype(0), master_diff);
       break;
 #ifndef CPU_ONLY
     case Caffe::GPU:
-      this_diff = params_[i]->gpu_diff();
-      owner_diff = params_[param_owners_[i]]->mutable_gpu_diff();
-      caffe_gpu_add(count, this_diff, owner_diff, owner_diff);
+      this_diff = params_[i]->mutable_gpu_diff();
+      master_diff = master_diffs_[master_diffs_index_[i]]->mutable_gpu_diff();
+      caffe_copy(count, master_diff, this_diff);
+      caffe_gpu_set(count, Dtype(0), master_diff);
       break;
 #else
       NO_GPU;
@@ -778,13 +813,12 @@ void Net<Dtype>::Update(const bool sync_data, const bool clip_grads, const Dtype
   }
 
 
-  // Now, update the owned parameters.
   if (sync_data) { LOG(INFO) << "Synching Weight Values"; }
 
   Dtype square_diff_norm = 0;
   for (int i = 0; i < params_.size(); ++i) {
-    if (param_owners_[i] >= 0) { continue; }
     if (debug_info_) { UpdateDebugInfo(i); }
+    if (param_owners_[i] > i) { continue; }
 
     // Average the diffs of the param owners across MPI
     if (sizeof(Dtype) == sizeof(float)) {
@@ -809,8 +843,9 @@ void Net<Dtype>::Update(const bool sync_data, const bool clip_grads, const Dtype
      if (world_rank == 0) { LOG(INFO) << "Gradient clipped: " << diff_norm << ", " << Dtype(1) / grad_scale; }
   }
 
+  // Now, update the owned parameters.
   for (int i = 0; i < params_.size(); ++i) {
-    if (param_owners_[i] >= 0) { continue; }
+    if (param_owners_[i] > i) { continue; }
     caffe_scal(params_[i]->count(), grad_scale / Dtype(world_size),
                params_[i]->mutable_cpu_diff());
 
