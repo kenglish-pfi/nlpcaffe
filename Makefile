@@ -168,7 +168,7 @@ ifneq ($(CPU_ONLY), 1)
 endif
 LIBRARIES += glog gflags protobuf leveldb snappy \
 	lmdb \
-	mpi \
+	mpi mpi_cxx \
 	boost_system \
 	hdf5_hl hdf5 \
 	opencv_core opencv_highgui opencv_imgproc pthread
@@ -259,8 +259,7 @@ endif
 
 # Debugging
 ifeq ($(DEBUG), 1)
-	#COMMON_FLAGS += -DDEBUG -g -O0
-	COMMON_FLAGS += -DDEBUG -g -O2
+	COMMON_FLAGS += -DDEBUG -g -O0
 	NVCCFLAGS += -G
 else
 	COMMON_FLAGS += -DNDEBUG -O2
