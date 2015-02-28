@@ -1,3 +1,4 @@
+#include <ctime>
 #include <cstdio>
 
 #include <algorithm>
@@ -196,7 +197,10 @@ void Solver<Dtype>::Solve(const char* resume_file) {
 
     const bool display = param_.display() && iter_ % param_.display() == 0;
     net_->set_debug_info(display && param_.debug_info());
+    clock_t startTime = clock();
     Dtype loss = net_->ForwardBackward(bottom_vec);
+    clock_t endTime = clock();
+    //LOG(INFO) << "ForwardBackward() time: " << (endTime - startTime) / (double) CLOCKS_PER_SEC;
     if (losses.size() < average_loss) {
       losses.push_back(loss);
       int size = losses.size();
@@ -229,7 +233,10 @@ void Solver<Dtype>::Solve(const char* resume_file) {
       }
     }
 
+    startTime = clock();
     ComputeUpdateValue();
+    endTime = clock();
+    //LOG(INFO) << "ComputeUpdateValue() time: " << (endTime - startTime) / (double) CLOCKS_PER_SEC;
 
     const bool full_sync = (this->iter_ % 500 == 0);
     const bool clip_grads = param_.has_max_grad();
@@ -237,7 +244,10 @@ void Solver<Dtype>::Solve(const char* resume_file) {
     if (clip_grads) {
       max_grad = param_.max_grad();
     }
+    startTime = clock();
     net_->Update(full_sync, clip_grads, max_grad);
+    endTime = clock();
+    //LOG(INFO) << "net_->Update() time: " << (endTime - startTime) / (double) CLOCKS_PER_SEC;
   }
   // Always save a snapshot after optimization, unless overridden by setting
   // snapshot_after_train := false.
@@ -486,13 +496,19 @@ void SGDSolver<Dtype>::ComputeUpdateValue() {
         }
       }
 
-      caffe_cpu_axpby(net_params[param_id]->count(), local_rate,
-                net_params[param_id]->cpu_diff(), momentum,
-                history_[param_id]->mutable_cpu_data());
-      // copy
-      caffe_copy(net_params[param_id]->count(),
-          history_[param_id]->cpu_data(),
-          net_params[param_id]->mutable_cpu_diff());
+      if (momentum > Dtype(0)) {
+        caffe_cpu_axpby(net_params[param_id]->count(), local_rate,
+                  net_params[param_id]->cpu_diff(), momentum,
+                  history_[param_id]->mutable_cpu_data());
+        // copy
+        caffe_copy(net_params[param_id]->count(),
+            history_[param_id]->cpu_data(),
+            net_params[param_id]->mutable_cpu_diff());
+      } else {
+        caffe_scal(net_params[param_id]->count(),
+            local_rate,
+            net_params[param_id]->mutable_cpu_diff());
+      }
     }
     break;
   case Caffe::GPU:
@@ -522,13 +538,19 @@ void SGDSolver<Dtype>::ComputeUpdateValue() {
         }
       }
 
-      caffe_gpu_axpby(net_params[param_id]->count(), local_rate,
-                net_params[param_id]->gpu_diff(), momentum,
-                history_[param_id]->mutable_gpu_data());
-      // copy
-      caffe_copy(net_params[param_id]->count(),
-          history_[param_id]->gpu_data(),
-          net_params[param_id]->mutable_gpu_diff());
+      if (momentum > Dtype(0)) {
+        caffe_gpu_axpby(net_params[param_id]->count(), local_rate,
+                  net_params[param_id]->gpu_diff(), momentum,
+                  history_[param_id]->mutable_gpu_data());
+        // copy
+        caffe_copy(net_params[param_id]->count(),
+            history_[param_id]->gpu_data(),
+            net_params[param_id]->mutable_gpu_diff());
+      } else {
+        caffe_gpu_scal(net_params[param_id]->count(),
+            local_rate,
+            net_params[param_id]->mutable_gpu_diff());
+      }
     }
 #else
     NO_GPU;
