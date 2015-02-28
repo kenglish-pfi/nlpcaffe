@@ -14,7 +14,7 @@ sys.path.append('python/caffe/proto'); import caffe_pb2
 from caffe_pb2 import NetParameter, LayerParameter, DataParameter, SolverParameter
 from caffe_pb2 import Datum
 
-source_length = 2
+source_length = 30
 target_length = 20
 source_vocab_size = 41000
 target_vocab_size = 41000
@@ -35,7 +35,7 @@ data_size_limit = 4*10**4
 #data_size_limit = 11 * 10 ** 6
 #data_size_limit = 11 * 10 ** 6
 rand_skip = min(data_size_limit - 1, 11 * 10 ** 6)
-train_batch_size = 128
+train_batch_size = 256
 deploy_batch_size = 10
 
 def make_data():
@@ -64,7 +64,7 @@ def make_data():
         with open('%s/zhen/shuffled_%s.40k.id.en' % (config.data_dir, phase), 'r') as f1: 
             with open('%s/zhen/shuffled_%s.40k.id.zh' % (config.data_dir, phase), 'r') as f2: 
                 for en, zh in itertools.islice(itertools.izip(f1.readlines(), f2.readlines()), data_size_limit):
-                    allX.append(vocab_transform(zh, en))
+                    allX.append(vocab_transform(en, zh))
 
         assert phase != 'train' or len(allX) > rand_skip
 
@@ -78,8 +78,8 @@ def make_data():
                 if i % 1000 == 0:
                     sys.stderr.write('%s\r' % i); sys.stderr.flush()
                 for j in range(source_length):
-                    #datum.float_data.append(source_line[::-1][j])
-                    datum.float_data.append(0)
+                    datum.float_data.append(source_line[::-1][j])
+                    #datum.float_data.append(0)
                 for j in range(target_length):
                     if j == 0:
                         datum.float_data.append(t_start_symbol)
@@ -99,7 +99,6 @@ def get_solver():
     solver.weight_decay = 0.0000
     solver.lr_policy = "fixed"
     solver.display = 20
-    solver.momentum = 0.5
     solver.max_iter = 1000000000
     solver.max_grad = 1.0
     solver.snapshot = 10000
@@ -125,8 +124,8 @@ def add_weight_filler(param, max_value=0.07):
 
 def get_net(deploy, batch_size):
     net = NetParameter()
-    lstm_num_cells = 500
-    wordvec_length = 500
+    lstm_num_cells = 1000
+    wordvec_length = 1000
 
     if not deploy:
         train_data = net.layers.add()
@@ -283,12 +282,12 @@ def get_net(deploy, batch_size):
             if (j < num_lstm_stacks - 1) or (source_or_target == 'target'):
                 batchnorm_layer = net.layers.add()
                 batchnorm_layer.name = 'dropout%d_%d' % (j, i)
-                batchnorm_layer.type = LayerParameter.BATCHNORM
+                batchnorm_layer.type = LayerParameter.DROPOUT
                 batchnorm_layer.top.append(batchnorm_layer.name)
                 batchnorm_layer.bottom.append('lstm%d_hidden%d' % (j, i))
-                batchnorm_layer.batchnorm_param.norm_dim = 0
-                for k in range(2):
-                    batchnorm_layer.param.append('batchnorm_param_%s_%s' % (j, source_or_target))
+                #batchnorm_layer.batchnorm_param.norm_dim = 0
+                #for k in range(2):
+                    #batchnorm_layer.param.append('batchnorm_param_%s_%s' % (j, source_or_target))
                 #relu_layer = net.layers.add()
                 #relu_layer.name = 'relu_' + batchnorm_layer.name
                 #relu_layer.type = LayerParameter.DROPOUT
