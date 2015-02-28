@@ -59,14 +59,14 @@ void BatchnormLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   for (int n = 0; n < num_; ++n) {
     caffe_add(bottom_size_, bottom_data + offset(n, bottom_size_), mean_data,
         mean_data);
-    caffe_sqr(bottom_size_, bottom_data + offset(n, bottom_size_), buffer);
+    caffe_powx(bottom_size_, bottom_data + offset(n, bottom_size_), Dtype(2.0), buffer);
     caffe_add(bottom_size_, buffer, variance_data, variance_data);
   }
   caffe_cpu_scale(bottom_size_, Dtype(1) / Dtype(num_), mean_data, mean_data);
   caffe_cpu_scale(bottom_size_, Dtype(1) / Dtype(num_), variance_data,
       variance_data);
 
-  caffe_sqr(bottom_size_, mean_data, buffer);
+  caffe_powx(bottom_size_, mean_data, Dtype(2.0), buffer);
   caffe_sub(bottom_size_, variance_data, buffer, variance_data);
   caffe_add_scalar(bottom_size_, var_epsilon_, variance_data);
   caffe_powx(bottom_size_, variance_data, Dtype(0.5), variance_data);
