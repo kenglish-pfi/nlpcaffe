@@ -31,11 +31,11 @@ t_unknown_symbol = target_vocab_size - 3
 t_start_symbol = target_vocab_size - 2
 t_zero_symbol = target_vocab_size - 1
 
-data_size_limit = 4*10**4
-#data_size_limit = 11 * 10 ** 6
+#data_size_limit = 4*10**4
+data_size_limit = 11 * 10 ** 6
 #data_size_limit = 11 * 10 ** 6
 rand_skip = min(data_size_limit - 1, 11 * 10 ** 6)
-train_batch_size = 256
+train_batch_size = 128
 deploy_batch_size = 10
 
 def make_data():
@@ -95,7 +95,7 @@ def get_solver():
     solver.net = "models/rnn/train_val.prototxt"
     solver.test_iter.append(10)
     solver.test_interval = 500
-    solver.base_lr = 5.0
+    solver.base_lr = 1.0
     solver.weight_decay = 0.0000
     solver.lr_policy = "fixed"
     solver.display = 20
@@ -124,8 +124,8 @@ def add_weight_filler(param, max_value=0.07):
 
 def get_net(deploy, batch_size):
     net = NetParameter()
-    lstm_num_cells = 1000
-    wordvec_length = 1000
+    lstm_num_cells = 500
+    wordvec_length = 500
 
     if not deploy:
         train_data = net.layers.add()
@@ -282,12 +282,14 @@ def get_net(deploy, batch_size):
             if (j < num_lstm_stacks - 1) or (source_or_target == 'target'):
                 batchnorm_layer = net.layers.add()
                 batchnorm_layer.name = 'dropout%d_%d' % (j, i)
-                batchnorm_layer.type = LayerParameter.DROPOUT
+                batchnorm_layer.type = LayerParameter.BN
                 batchnorm_layer.top.append(batchnorm_layer.name)
                 batchnorm_layer.bottom.append('lstm%d_hidden%d' % (j, i))
                 #batchnorm_layer.batchnorm_param.norm_dim = 0
-                #for k in range(2):
-                    #batchnorm_layer.param.append('batchnorm_param_%s_%s' % (j, source_or_target))
+                batchnorm_layer.batchnorm_param.norm_dim = 0
+                batchnorm_layer.bn_param.scale_filler.value = 1
+                for k in range(2):
+                    batchnorm_layer.param.append('batchnorm_param_%s_%s' % (j, source_or_target))
                 #relu_layer = net.layers.add()
                 #relu_layer.name = 'relu_' + batchnorm_layer.name
                 #relu_layer.type = LayerParameter.DROPOUT
