@@ -237,6 +237,7 @@ message LayerParameter {
     ACCURACY = 1;
     ARGMAX = 30;
     BATCHNORM = 104;
+    BN = 105;
     BNLL = 2;
     CONCAT = 3;
     CONTRASTIVE_LOSS = 37;
@@ -305,6 +306,7 @@ message LayerParameter {
   optional AccuracyParameter accuracy_param = 27;
   optional ArgMaxParameter argmax_param = 23;
   optional BatchnormParameter batchnorm_param = 105;
+  optional BNParameter bn_param = 106;
   optional ConcatParameter concat_param = 9;
   optional ContrastiveLossParameter contrastive_loss_param = 40;
   optional ConvolutionParameter convolution_param = 10;
@@ -421,6 +423,11 @@ message ConvolutionParameter {
 message BatchnormParameter {
   optional uint32 norm_dim = 1 [default = 0];
   optional float var_epsilon = 2 [default = 0.001];
+}
+
+message BNParameter {
+  optional FillerParameter scale_filler = 1; // The filler for the scale
+  optional FillerParameter shift_filler = 2; // The filler for the shift
 }
 
 message LstmParameter {

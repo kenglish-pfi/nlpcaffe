@@ -187,6 +187,8 @@ Layer<Dtype>* GetLayer(const LayerParameter& param) {
     return new ArgMaxLayer<Dtype>(param);
   case LayerParameter_LayerType_BATCHNORM:
     return new BatchnormLayer<Dtype>(param);
+  case LayerParameter_LayerType_BN:
+    return new BNLayer<Dtype>(param);
   case LayerParameter_LayerType_BNLL:
     return new BNLLLayer<Dtype>(param);
   case LayerParameter_LayerType_CONCAT:
