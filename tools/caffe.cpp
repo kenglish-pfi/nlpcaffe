@@ -95,7 +95,7 @@ int train() {
     //FLAGS_gpu = solver_param.device_id();
     int world_rank = 0;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-    FLAGS_gpu = world_rank + 1;
+    FLAGS_gpu = world_rank;
   }
 
   // Set device id and mode
