@@ -102,7 +102,7 @@ def get_solver():
     solver.max_iter = 1000000000
     solver.max_grad = 1.0
     solver.snapshot = 10000
-    solver.snapshot_prefix = "/snapshots/%s" % (os.path.dirname(os.path.realpath(__file__)).split('/')[-1])
+    solver.snapshot_prefix = "%s/%s" % (config.snapshot_dir, os.path.dirname(os.path.realpath(__file__)).split('/')[-1])
     solver.random_seed = 17
     solver.solver_mode = SolverParameter.GPU
     return solver
