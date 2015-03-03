@@ -826,20 +826,40 @@ void Net<Dtype>::Update(const bool sync_data, const bool clip_grads, const Dtype
     }
   }
 
+  int world_size = 1;
+  int world_rank = 0;
+  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
   if (sync_data) { LOG(INFO) << "Synching Weight Values"; }
+    //Occasionally synch the data between blobs to avoid divergence
+  if (sync_data) {
+    for (int i = 0; i < params_.size(); ++i) {
+      if (param_owners_[i] >= 0 && param_owners_[i] != i) { continue; }
+      if (sizeof(Dtype) == sizeof(float)) {
+        MPI_Allreduce(MPI_IN_PLACE, params_[i]->mutable_gpu_data(),
+            params_[i]->count(), MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+      } else {
+        MPI_Allreduce(MPI_IN_PLACE, params_[i]->mutable_gpu_data(),
+            params_[i]->count(), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+      }
+      caffe_gpu_scal(params_[i]->count(), 1 / Dtype(world_size),
+                 params_[i]->mutable_gpu_data());
+    }
+    return;
+  }
 
   Dtype square_diff_norm = 0;
   for (int i = 0; i < params_.size(); ++i) {
     if (debug_info_) { UpdateDebugInfo(i); }
-    if (param_owners_[i] > i) { continue; }
+    if (param_owners_[i] >= 0 && param_owners_[i] != i) { continue; }
 
-    // Average the diffs of the param owners across MPI
-    //if (sizeof(Dtype) == sizeof(float)) {
-      //MPI_Allreduce(MPI_IN_PLACE, params_[i]->mutable_cpu_diff(), params_[i]->count(), MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
-    //} else {
-      //MPI_Allreduce(MPI_IN_PLACE, params_[i]->mutable_cpu_diff(), params_[i]->count(), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    //}
+    //Average the diffs of the param owners across MPI
+    if (sizeof(Dtype) == sizeof(float)) {
+      MPI_Allreduce(MPI_IN_PLACE, params_[i]->mutable_gpu_diff(), params_[i]->count(), MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+    } else {
+      MPI_Allreduce(MPI_IN_PLACE, params_[i]->mutable_gpu_diff(), params_[i]->count(), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    }
 
 #ifdef CPU_ONLY
     square_diff_norm += caffe_cpu_dot(params_[i]->count(), params_[i]->cpu_diff(), params_[i]->cpu_diff());
@@ -850,10 +870,6 @@ void Net<Dtype>::Update(const bool sync_data, const bool clip_grads, const Dtype
 #endif
   }
 
-  int world_size = 1;
-  int world_rank = 0;
-  //MPI_Comm_size(MPI_COMM_WORLD, &world_size);
-  //MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
   Dtype grad_scale = Dtype(1.0);
   Dtype diff_norm = Dtype(0);
@@ -865,7 +881,7 @@ void Net<Dtype>::Update(const bool sync_data, const bool clip_grads, const Dtype
 
   // Now, update the owned parameters.
   for (int i = 0; i < params_.size(); ++i) {
-    if (param_owners_[i] > i) { continue; }
+    if (param_owners_[i] >= 0 && param_owners_[i] != i) { continue; }
 #ifdef CPU_ONLY
     caffe_scal(params_[i]->count(), grad_scale / Dtype(world_size),
                params_[i]->mutable_cpu_diff());
@@ -877,18 +893,6 @@ void Net<Dtype>::Update(const bool sync_data, const bool clip_grads, const Dtype
     // Apply the diffs
     params_[i]->Update();
 
-    //Occasionally synch the data between blobs to avoid divergence
-    //if (sync_data) {
-        //if (sizeof(Dtype) == sizeof(float)) {
-          //MPI_Allreduce(MPI_IN_PLACE, params_[i]->mutable_cpu_data(),
-              //params_[i]->count(), MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
-        //} else {
-          //MPI_Allreduce(MPI_IN_PLACE, params_[i]->mutable_cpu_data(),
-              //params_[i]->count(), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        //}
-        //caffe_scal(params_[i]->count(), 1 / Dtype(world_size),
-                   //params_[i]->mutable_cpu_data());
-    //}
   }
 }
 
