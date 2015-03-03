@@ -20,7 +20,7 @@ void BNLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   C_ = bottom[0]->channels();
   H_ = bottom[0]->height();
   W_ = bottom[0]->width();
-  var_eps_ = 1e-9;
+  var_eps_ = this->layer_param_.bn_param().var_epsilon();
 
   // mean
   spatial_mean_.Reshape(N_, C_, 1, 1);
