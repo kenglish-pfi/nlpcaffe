@@ -72,20 +72,35 @@ void SliceLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
 template <typename Dtype>
 void SliceLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
-  int offset_slice_axis = 0;
-  const Dtype* bottom_data = bottom[0]->cpu_data();
-  const int bottom_slice_axis = bottom[0]->shape(slice_axis_);
-  for (int i = 0; i < top.size(); ++i) {
-    Dtype* top_data = top[i]->mutable_cpu_data();
-    const int top_slice_axis = top[i]->shape(slice_axis_);
-    for (int n = 0; n < num_slices_; ++n) {
-      const int top_offset = n * top_slice_axis * slice_size_;
-      const int bottom_offset =
-          (n * bottom_slice_axis + offset_slice_axis) * slice_size_;
-      caffe_copy(top_slice_axis * slice_size_,
-          bottom_data + bottom_offset, top_data + top_offset);
+  if (slice_axis_ == 2) {
+    const int top_size = top.size();
+    const Dtype* bottom_data = bottom[0]->cpu_data();
+    for (int i = 0; i < top_size; ++i) {
+      Dtype* top_data = top[i]->mutable_cpu_data();
+      for (int n = 0; n < bottom[0]->num(); ++n) {
+        for (int c = 0; c < bottom[0]->channels(); ++c) {
+          // top height_ and width_ are assumed to be 1 from layer SetUp
+          const int idx = n * bottom[0]->channels();
+          top_data[idx] = bottom_data[i + idx * top_size];
+        }
+      }
     }
-    offset_slice_axis += top_slice_axis;
+  } else {
+    int offset_slice_axis = 0;
+    const Dtype* bottom_data = bottom[0]->cpu_data();
+    const int bottom_slice_axis = bottom[0]->shape(slice_axis_);
+    for (int i = 0; i < top.size(); ++i) {
+      Dtype* top_data = top[i]->mutable_cpu_data();
+      const int top_slice_axis = top[i]->shape(slice_axis_);
+      for (int n = 0; n < num_slices_; ++n) {
+        const int top_offset = n * top_slice_axis * slice_size_;
+        const int bottom_offset =
+            (n * bottom_slice_axis + offset_slice_axis) * slice_size_;
+        caffe_copy(top_slice_axis * slice_size_,
+            bottom_data + bottom_offset, top_data + top_offset);
+      }
+      offset_slice_axis += top_slice_axis;
+    }
   }
 }
 
@@ -93,20 +108,35 @@ template <typename Dtype>
 void SliceLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
   if (!propagate_down[0]) { return; }
-  int offset_slice_axis = 0;
-  Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
-  const int bottom_slice_axis = bottom[0]->shape(slice_axis_);
-  for (int i = 0; i < top.size(); ++i) {
-    const Dtype* top_diff = top[i]->cpu_diff();
-    const int top_slice_axis = top[i]->shape(slice_axis_);
-    for (int n = 0; n < num_slices_; ++n) {
-      const int top_offset = n * top_slice_axis * slice_size_;
-      const int bottom_offset =
-          (n * bottom_slice_axis + offset_slice_axis) * slice_size_;
-      caffe_copy(top_slice_axis * slice_size_,
-          top_diff + top_offset, bottom_diff + bottom_offset);
+  if (slice_axis_ == 2) {
+    const int top_size = top.size();
+    Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
+    for (int i = 0; i < top_size; ++i) {
+      const Dtype* top_diff = top[i]->cpu_diff();
+      for (int n = 0; n < bottom[0]->num(); ++n) {
+        for (int c = 0; c < bottom[0]->channels(); ++c) {
+          // top height_ and width_ are assumed to be 1 from layer SetUp
+          const int idx = n * bottom[0]->channels() + c;
+          bottom_diff[i + idx * top_size] = top_diff[idx];
+        }
+      }
     }
-    offset_slice_axis += top_slice_axis;
+  } else {
+    int offset_slice_axis = 0;
+    Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
+    const int bottom_slice_axis = bottom[0]->shape(slice_axis_);
+    for (int i = 0; i < top.size(); ++i) {
+      const Dtype* top_diff = top[i]->cpu_diff();
+      const int top_slice_axis = top[i]->shape(slice_axis_);
+      for (int n = 0; n < num_slices_; ++n) {
+        const int top_offset = n * top_slice_axis * slice_size_;
+        const int bottom_offset =
+            (n * bottom_slice_axis + offset_slice_axis) * slice_size_;
+        caffe_copy(top_slice_axis * slice_size_,
+            top_diff + top_offset, bottom_diff + bottom_offset);
+      }
+      offset_slice_axis += top_slice_axis;
+    }
   }
 }
 
