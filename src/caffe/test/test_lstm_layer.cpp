@@ -83,7 +83,7 @@ TYPED_TEST(LstmLayerTest, TestSetupAcrossChannels) {
   lstm_param->mutable_forget_gate_weight_filler()->set_type("xavier");
   lstm_param->mutable_output_gate_weight_filler()->set_type("xavier");
   LstmLayer<Dtype> layer(layer_param);
-  layer.SetUp(this->blob_bottom_vec_, &(this->blob_top_vec_));
+  layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
   EXPECT_EQ(this->blob_top_->num(), BATCH_SIZE);
   EXPECT_EQ(this->blob_top_->channels(), NUM_CELLS);
   EXPECT_EQ(this->blob_top_->height(), 1);
@@ -102,8 +102,8 @@ TYPED_TEST(LstmLayerTest, TestGradientAcrossChannels) {
 
   LstmLayer<Dtype> layer(layer_param);
   GradientChecker<Dtype> checker(1e-2, 1e-2);
-  layer.SetUp(this->blob_bottom_vec_, &(this->blob_top_vec_));
-  layer.Forward(this->blob_bottom_vec_, &(this->blob_top_vec_));
+  layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
+  layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
   for (int i = 0; i < this->blob_top_->count(); ++i) {
     this->blob_top_->mutable_cpu_diff()[i] = 1.;
   }
@@ -112,9 +112,9 @@ TYPED_TEST(LstmLayerTest, TestGradientAcrossChannels) {
   }
   vector<bool> propagate_down(this->blob_bottom_vec_.size(), true);
   layer.Backward(this->blob_top_vec_, propagate_down,
-                 &(this->blob_bottom_vec_));
-  checker.CheckGradientExhaustive(&layer, &(this->blob_bottom_vec_),
-      &(this->blob_top_vec_));
+                 this->blob_bottom_vec_);
+  checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
+      this->blob_top_vec_);
 }
 
 }  // namespace caffe

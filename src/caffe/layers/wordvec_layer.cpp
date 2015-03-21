@@ -7,7 +7,7 @@ namespace caffe {
 
 template <typename Dtype>
 void WordvecLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
-      vector<Blob<Dtype>*>* top) {
+      const vector<Blob<Dtype>*>& top) {
   WordvecParameter wordvec_param = this->layer_param_.wordvec_param();
   CHECK((wordvec_param.has_dimension()))
       << "wordvec_param.has_dimension()";
@@ -33,20 +33,20 @@ void WordvecLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
 template <typename Dtype>
 void WordvecLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
-      vector<Blob<Dtype>*>* top) {
+      const vector<Blob<Dtype>*>& top) {
   CHECK((this->layer_param_.bottom_size() == 1 || this->layer_param_.bottom_size() == 0))
       << "Wordvec must have no more than one bottom";
   CHECK((this->layer_param_.top_size() == 1 || this->layer_param_.top_size() == 0))
       << "Wordvec must have no more than one top";
-  (*top)[0]->Reshape(num_, dimension_, sentence_length_, 1);
+  top[0]->Reshape(num_, dimension_, sentence_length_, 1);
 }
 
 template <typename Dtype>
 void WordvecLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
-      vector<Blob<Dtype>*>* top) {
+      const vector<Blob<Dtype>*>& top) {
   const Dtype* weights = this->blobs_[0]->cpu_data();
   Dtype* bottom_data = bottom[0]->mutable_cpu_data();
-  Dtype* top_data = (*top)[0]->mutable_cpu_data();
+  Dtype* top_data = top[0]->mutable_cpu_data();
 
   for (int n = 0; n < num_; ++n) {
     for (int d = 0; d < dimension_; ++d) {
@@ -61,9 +61,9 @@ void WordvecLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
 
 template <typename Dtype>
 void WordvecLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
-      const vector<bool>& propagate_down, vector<Blob<Dtype>*>* bottom) {
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
   Dtype* weights_diff = this->blobs_[0]->mutable_cpu_diff();
-  const Dtype* bottom_data = (*bottom)[0]->cpu_data();
+  const Dtype* bottom_data = bottom[0]->cpu_data();
   const Dtype* top_diff = top[0]->cpu_diff();
 
   caffe_set(this->blobs_[0]->count(), Dtype(0), weights_diff);
@@ -85,5 +85,6 @@ STUB_GPU(WordvecLayer);
 #endif
 
 INSTANTIATE_CLASS(WordvecLayer);
+REGISTER_LAYER_CLASS(Wordvec);
 
 }  // namespace caffe

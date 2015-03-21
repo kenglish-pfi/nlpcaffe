@@ -71,7 +71,7 @@ __global__ void BackwardGates(
 
 template <typename Dtype>
 void LstmLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
-      vector<Blob<Dtype>*>* top) {
+      const vector<Blob<Dtype>*>& top) {
   const Dtype* input_data = bottom[0]->gpu_data();
   const Dtype* prev_state_data = bottom[1]->gpu_data();
 
@@ -80,8 +80,8 @@ void LstmLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
   const Dtype* forget_gate_weight = this->blobs_[2]->gpu_data();
   const Dtype* output_gate_weight = this->blobs_[3]->gpu_data();
 
-  Dtype* next_hidden_state = (*top)[0]->mutable_gpu_data();
-  Dtype* next_memory_state = (*top)[1]->mutable_gpu_data();
+  Dtype* next_hidden_state = top[0]->mutable_gpu_data();
+  Dtype* next_memory_state = top[1]->mutable_gpu_data();
 
   Dtype* gates_data = gates_data_buffer_.mutable_gpu_data();
 
@@ -103,6 +103,9 @@ void LstmLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
     (Dtype)1., input_data, output_gate_weight,
     (Dtype)0., output_gates);
 
+  caffe_gpu_set(channels_ * num_, Dtype(0), forget_gates);
+  caffe_gpu_sub(channels_ * num_, forget_gates, output_gates, forget_gates);
+
   const int count = num_ * channels_;
   ForwardCombineGates<Dtype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(
       count,
@@ -119,16 +122,16 @@ void LstmLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
 
 template <typename Dtype>
 void LstmLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
-      const vector<bool>& propagate_down, vector<Blob<Dtype>*>* bottom) {
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
   for (int i = 0; i < 2; ++i) {
-    caffe_gpu_set((*bottom)[i]->count(), Dtype(0), (*bottom)[i]->mutable_gpu_diff());
+    caffe_gpu_set(bottom[i]->count(), Dtype(0), bottom[i]->mutable_gpu_diff());
   }
   for (int i = 0; i < 4; ++i) {
     caffe_gpu_set(this->blobs_[i]->count(), Dtype(0), this->blobs_[i]->mutable_gpu_diff());
   }
 
-  const Dtype* input_data = (*bottom)[0]->gpu_data();
-  const Dtype* prev_state_data = (*bottom)[1]->gpu_data();
+  const Dtype* input_data = bottom[0]->gpu_data();
+  const Dtype* prev_state_data = bottom[1]->gpu_data();
 
   const Dtype* input_weight = this->blobs_[0]->gpu_data();
   const Dtype* input_gate_weight = this->blobs_[1]->gpu_data();
@@ -167,8 +170,8 @@ void LstmLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
   Dtype* forget_gate_weight_diff = this->blobs_[2]->mutable_gpu_diff();
   Dtype* output_gate_weight_diff = this->blobs_[3]->mutable_gpu_diff();
 
-  Dtype* input_diff = (*bottom)[0]->mutable_gpu_diff();
-  Dtype* prev_state_diff = (*bottom)[1]->mutable_gpu_diff();
+  Dtype* input_diff = bottom[0]->mutable_gpu_diff();
+  Dtype* prev_state_diff = bottom[1]->mutable_gpu_diff();
 
   const Dtype* next_hidden_state_diff = top[0]->gpu_diff();
   const Dtype* next_memory_state = top[1]->gpu_data();
@@ -203,41 +206,22 @@ void LstmLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
   caffe_gpu_mul(num_ * channels_, forget_gates_diff, prev_state_data, dldg_data);
   caffe_gpu_mul(num_ * channels_, next_state_tot_diff, dldg_data, dldg_data);
   caffe_gpu_gemm<Dtype>(CblasTrans, CblasNoTrans, channels_, input_data_size_, num_,
-    (Dtype)1., dldg_data, input_data,
-    (Dtype)0., forget_gate_weight_diff);
+    (Dtype)-1., dldg_data, input_data,
+    (Dtype)1., output_gate_weight_diff);
   caffe_gpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, num_, input_data_size_, channels_,
-    (Dtype)1., dldg_data, forget_gate_weight,
+    (Dtype)-1., dldg_data, output_gate_weight,
     (Dtype)1., input_diff);
 
   caffe_gpu_mul(num_ * channels_, output_gates_diff, next_memory_state, dldg_data);
   caffe_gpu_mul(num_ * channels_, next_hidden_state_diff, dldg_data, dldg_data);
   caffe_gpu_gemm<Dtype>(CblasTrans, CblasNoTrans, channels_, input_data_size_, num_,
     (Dtype)1., dldg_data, input_data,
-    (Dtype)0., output_gate_weight_diff);
+    (Dtype)1., output_gate_weight_diff);
   caffe_gpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, num_, input_data_size_, channels_,
     (Dtype)1., dldg_data, output_gate_weight,
     (Dtype)1., input_diff);
-
-
-//   Dtype max_input_diff = Dtype(0.0);
-//   Dtype max_prev_diff = Dtype(0.0);
-//   for (int n = 0; n < num_; ++n) {
-//     for (int k = 0; k < input_data_size; ++k) {
-//       Dtype* input_diff_cpu = (*bottom)[0]->mutable_cpu_diff();
-//       input_diff_cpu[k + n * input_data_size] = std::max(Dtype(-0.001), std::min(Dtype(0.001), input_diff_cpu[k + n * input_data_size]));
-//       /*max_input_diff = std::max(max_input_diff, input_diff_cpu[k]);*/
-//     }
-
-//     for (int k = 0; k < channels_; ++k) {
-//       Dtype* prev_state_diff_cpu = (*bottom)[1]->mutable_cpu_diff();
-//       prev_state_diff_cpu[k + n * channels_] = std::max(Dtype(-0.001), std::min(Dtype(0.001), prev_state_diff_cpu[k + n * channels_]));
-//       /*max_prev_diff = std::max(max_prev_diff, prev_state_diff_cpu[k]);*/
-//     }
-//   }
-//   // std::cout << "input_diff: " << max_input_diff << "\n";
-//   /*std::cout << "prev_state_diff: " << max_prev_diff << "\n";*/
 }
 
-INSTANTIATE_CLASS(LstmLayer);
+INSTANTIATE_LAYER_GPU_FUNCS(LstmLayer);
 
 }  // namespace caffe

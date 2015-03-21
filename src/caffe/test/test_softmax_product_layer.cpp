@@ -68,7 +68,7 @@ TYPED_TEST(SoftmaxProductLayerTest, TestSetUp) {
   softmax_product_param->set_num_categories(NUM_CATEGORIES);
   shared_ptr<SoftmaxProductLayer<Dtype> > layer(
       new SoftmaxProductLayer<Dtype>(layer_param));
-  layer->SetUp(this->blob_bottom_vec_, &(this->blob_top_vec_));
+  layer->SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
   EXPECT_EQ(this->blob_top_->num(), BOTTOM_NUM);
   EXPECT_EQ(this->blob_top_->height(), 1);
   EXPECT_EQ(this->blob_top_->width(), 1);
@@ -103,8 +103,8 @@ TYPED_TEST(SoftmaxProductLayerTest, TestGradient) {
     softmax_product_param->mutable_weight_filler()->set_max(1);
     SoftmaxProductLayer<Dtype> layer(layer_param);
     GradientChecker<Dtype> checker(1e-2, 1e-3);
-    checker.CheckGradientExhaustive(&layer, &(this->blob_bottom_vec_),
-        &(this->blob_top_vec_), 0);
+    checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
+        this->blob_top_vec_, 0);
 
   } else {
     LOG(ERROR) << "Skipping test due to old architecture.";

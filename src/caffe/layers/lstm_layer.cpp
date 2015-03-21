@@ -28,7 +28,7 @@ inline Dtype tanh_diff(Dtype x) {
 
 template <typename Dtype>
 void LstmLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
-      vector<Blob<Dtype>*>* top) {
+      const vector<Blob<Dtype>*>& top) {
   LstmParameter lstm_param = this->layer_param_.lstm_param();
   CHECK((lstm_param.has_num_cells()))
       << "lstm_param.has_num_cells()";
@@ -78,7 +78,7 @@ void LstmLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
 template <typename Dtype>
 void LstmLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
-      vector<Blob<Dtype>*>* top) {
+      const vector<Blob<Dtype>*>& top) {
   CHECK((this->layer_param_.bottom_size() == 2 || this->layer_param_.bottom_size() == 0))
       << "LSTM must have a data and cell bottom";
   CHECK((this->layer_param_.top_size() == 2 || this->layer_param_.top_size() == 0))
@@ -87,13 +87,13 @@ void LstmLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
   gates_diff_buffer_.Reshape(num_, 4 * channels_, 1, 1);
   next_state_tot_diff_buffer_.Reshape(num_, channels_, 1, 1);
   dldg_buffer_.Reshape(num_, channels_, 1, 1);
-  (*top)[0]->Reshape(num_, channels_, 1, 1);
-  (*top)[1]->Reshape(num_, channels_, 1, 1);
+  top[0]->Reshape(num_, channels_, 1, 1);
+  top[1]->Reshape(num_, channels_, 1, 1);
 }
 
 template <typename Dtype>
 void LstmLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
-      vector<Blob<Dtype>*>* top) {
+      const vector<Blob<Dtype>*>& top) {
   const Dtype* input_data = bottom[0]->cpu_data();
   const Dtype* prev_state_data = bottom[1]->cpu_data();
 
@@ -102,8 +102,8 @@ void LstmLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   const Dtype* forget_gate_weight = this->blobs_[2]->cpu_data();
   const Dtype* output_gate_weight = this->blobs_[3]->cpu_data();
 
-  Dtype* next_hidden_state = (*top)[0]->mutable_cpu_data();
-  Dtype* next_memory_state = (*top)[1]->mutable_cpu_data();
+  Dtype* next_hidden_state = top[0]->mutable_cpu_data();
+  Dtype* next_memory_state = top[1]->mutable_cpu_data();
 
   Dtype* gates_data = gates_data_buffer_.mutable_cpu_data();
 
@@ -142,16 +142,16 @@ void LstmLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
 
 template <typename Dtype>
 void LstmLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
-      const vector<bool>& propagate_down, vector<Blob<Dtype>*>* bottom) {
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
   for (int i = 0; i < 2; ++i) {
-    caffe_set((*bottom)[i]->count(), Dtype(0), (*bottom)[i]->mutable_cpu_diff());
+    caffe_set(bottom[i]->count(), Dtype(0), bottom[i]->mutable_cpu_diff());
   }
   for (int i = 0; i < 4; ++i) {
     caffe_set(this->blobs_[i]->count(), Dtype(0), this->blobs_[i]->mutable_cpu_diff());
   }
 
-  const Dtype* input_data = (*bottom)[0]->cpu_data();
-  const Dtype* prev_state_data = (*bottom)[1]->cpu_data();
+  const Dtype* input_data = bottom[0]->cpu_data();
+  const Dtype* prev_state_data = bottom[1]->cpu_data();
 
   const Dtype* input_weight = this->blobs_[0]->cpu_data();
   const Dtype* input_gate_weight = this->blobs_[1]->cpu_data();
@@ -186,8 +186,8 @@ void LstmLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   Dtype* forget_gate_weight_diff = this->blobs_[2]->mutable_cpu_diff();
   Dtype* output_gate_weight_diff = this->blobs_[3]->mutable_cpu_diff();
 
-  Dtype* input_diff = (*bottom)[0]->mutable_cpu_diff();
-  Dtype* prev_state_diff = (*bottom)[1]->mutable_cpu_diff();
+  Dtype* input_diff = bottom[0]->mutable_cpu_diff();
+  Dtype* prev_state_diff = bottom[1]->mutable_cpu_diff();
 
   const Dtype* next_hidden_state_diff = top[0]->cpu_diff();
   const Dtype* next_memory_state = top[1]->cpu_data();
@@ -243,5 +243,6 @@ STUB_GPU(LstmLayer);
 #endif
 
 INSTANTIATE_CLASS(LstmLayer);
+REGISTER_LAYER_CLASS(Lstm);
 
 }  // namespace caffe

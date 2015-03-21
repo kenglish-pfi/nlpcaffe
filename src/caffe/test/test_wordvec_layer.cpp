@@ -76,7 +76,7 @@ TYPED_TEST(WordvecLayerTest, TestSetupAcrossChannels) {
   wordvec_param->set_dimension(DIMENSION);
   wordvec_param->mutable_weight_filler()->set_type("xavier");
   WordvecLayer<Dtype> layer(layer_param);
-  layer.SetUp(this->blob_bottom_vec_, &(this->blob_top_vec_));
+  layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
   EXPECT_EQ(this->blob_top_->num(), BATCH_SIZE);
   EXPECT_EQ(this->blob_top_->channels(), DIMENSION);
   EXPECT_EQ(this->blob_top_->height(), SENTENCE_LENGTH);
@@ -93,8 +93,8 @@ TYPED_TEST(WordvecLayerTest, TestGradientAcrossChannels) {
   WordvecLayer<Dtype> layer(layer_param);
 
   GradientChecker<Dtype> checker(1e-2, 1e-2, 1601);
-  checker.CheckGradientExhaustive(&layer, &(this->blob_bottom_vec_),
-                 &(this->blob_top_vec_), -2);
+  checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
+                 this->blob_top_vec_, -2);
 }
 
 }  // namespace caffe

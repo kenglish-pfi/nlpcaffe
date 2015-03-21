@@ -8,7 +8,6 @@
 
 #include <cstdio>
 #include <cstdlib>
-#include <mpi.h>
 
 #include "caffe/common.hpp"
 
@@ -16,7 +15,7 @@ using std::cout;
 using std::endl;
 
 #ifdef CMAKE_BUILD
-  #include <cmake_test_defines.hpp.gen.cmake>
+  #include "caffe_config.h"
 #else
   #define CUDA_TEST_DEVICE -1
   #define CMAKE_SOURCE_DIR "src/"
@@ -35,13 +34,6 @@ class MultiDeviceTest : public ::testing::Test {
  protected:
   MultiDeviceTest() {
     Caffe::set_mode(TypeParam::device);
-    {
-      // initialize MPI during make runtest
-      int initialized;
-      MPI_Initialized(&initialized);
-      if (!initialized)
-         MPI_Init(NULL, NULL);
-    }
   }
   virtual ~MultiDeviceTest() {}
 };
