@@ -334,7 +334,7 @@ def run(idx, param):
 
     base_param['data_size_limit'] = 42068
     #base_param['data_size_limit'] = 11 * 10 ** 6
-    base_param['rand_skip'] = min(param['data_size_limit'] - 1, 3 * 10 ** 7)
+    base_param['rand_skip'] = min(base_param['data_size_limit'] - 1, 3 * 10 ** 7)
     base_param['train_batch_size'] = 128
     base_param['deploy_batch_size'] = 32
     base_param['lstm_num_cells'] = 1000
@@ -366,7 +366,7 @@ def run(idx, param):
     write_net(param)
 
 def main():
-    run(1)
+    run(1, {})
 
 if __name__ == '__main__':
     main()
