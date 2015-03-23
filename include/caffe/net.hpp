@@ -83,7 +83,7 @@ class Net {
   }
 
   /// @brief Updates the network weights based on the diff values computed.
-  void Update(const bool sync_data, const bool clip_grads, Dtype max_grad);
+  void Update();
 
   /**
    * @brief For an already initialized net, implicitly copies (i.e., using no
@@ -237,6 +237,7 @@ class Net {
   vector<Dtype> blob_loss_weights_;
   vector<vector<int> > param_id_vecs_;
   vector<int> param_owners_;
+  vector<bool> shared_param_owners_;
   vector<string> param_display_names_;
   vector<pair<int, int> > param_layer_indices_;
   map<string, int> param_names_index_;

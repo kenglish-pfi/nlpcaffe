@@ -208,13 +208,7 @@ void Solver<Dtype>::Step(int iters) {
       }
     }
     ComputeUpdateValue();
-
-    const bool clip_grads = param_.has_max_grad();
-    Dtype max_grad = Dtype(0);
-    if (clip_grads) {
-      max_grad = param_.max_grad();
-    }
-    net_->Update(false, clip_grads, max_grad);
+    net_->Update();
 
     // Save a snapshot if needed.
     if (param_.snapshot() && (iter_ + 1) % (iter_ + 1 < param_.snapshot() ? param_.snapshot() / 10 : param_.snapshot()) == 0) {

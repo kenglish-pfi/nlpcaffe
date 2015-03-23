@@ -409,15 +409,16 @@ void Net<Dtype>::AppendParam(const NetParameter& param, const int layer_id,
     // This layer "owns" this parameter blob -- it is either anonymous
     // (i.e., not given a param_name) or explicitly given a name that we
     // haven't already seen.
+    param_owners_.push_back(-1);
     if (param_size) {
+      shared_param_owners_.push_back(true);
       param_names_index_[param_name] = net_param_id;
-      param_owners_.push_back(net_param_id);
       shared_ptr<Blob<Dtype> > new_master_diff(new Blob<Dtype>());
       new_master_diff->ReshapeLike(*params_[net_param_id]);
       master_diffs_index_[net_param_id] = master_diffs_.size();
       master_diffs_.push_back(new_master_diff);
     } else {
-      param_owners_.push_back(-1);
+      shared_param_owners_.push_back(false);
       master_diffs_index_[net_param_id] = -1;
     }
   } else {
@@ -425,6 +426,7 @@ void Net<Dtype>::AppendParam(const NetParameter& param, const int layer_id,
     const int owner_net_param_id = param_names_index_[param_name];
     master_diffs_index_[net_param_id] = master_diffs_index_[owner_net_param_id];
     param_owners_.push_back(owner_net_param_id);
+    shared_param_owners_.push_back(false);
     const pair<int, int>& owner_index =
         param_layer_indices_[owner_net_param_id];
     const int owner_layer_id = owner_index.first;
@@ -573,6 +575,32 @@ void Net<Dtype>::BackwardFromTo(int start, int end) {
         net_param_id = net_param_id - layers_[i]->blobs().size();
     }
   }
+  for (int i = params_.size() - 1; i >= 0; --i) {
+    if (!shared_param_owners_[i]) { continue; }
+    const int count = params_[i]->count();
+    Dtype* this_diff;
+    Dtype* master_diff;
+    switch (Caffe::mode()) {
+    case Caffe::CPU:
+      this_diff = params_[i]->mutable_cpu_diff();
+      master_diff = master_diffs_[master_diffs_index_[i]]->mutable_cpu_diff();
+      caffe_copy(count, master_diff, this_diff);
+      caffe_set(count, Dtype(0), master_diff);
+      break;
+#ifndef CPU_ONLY
+    case Caffe::GPU:
+      this_diff = params_[i]->mutable_gpu_diff();
+      master_diff = master_diffs_[master_diffs_index_[i]]->mutable_gpu_diff();
+      caffe_copy(count, master_diff, this_diff);
+      caffe_gpu_set(count, Dtype(0), master_diff);
+      break;
+#else
+      NO_GPU;
+#endif
+    default:
+      LOG(FATAL) << "Unknown caffe mode: " << Caffe::mode();
+    }
+  }
 }
 
 template <typename Dtype>
@@ -636,7 +664,7 @@ void Net<Dtype>::UpdateDebugInfo(const int param_id) {
   const string& layer_name = layer_names_[param_layer_indices_[param_id].first];
   const string& param_display_name = param_display_names_[param_id];
   const Dtype diff_abs_val_mean = blob.asum_diff() / blob.count();
-  if (param_owner < 0 || param_owner == param_id) {
+  if (param_owner < 0) {
     const Dtype data_abs_val_mean = blob.asum_data() / blob.count();
     LOG(INFO) << "    [Update] Layer " << layer_name
         << ", param " << param_display_name
@@ -766,8 +794,7 @@ void Net<Dtype>::ToProto(NetParameter* param, bool write_diff) const {
     for (int j = 0; j < layers_[i]->blobs().size(); ++j) {
       CHECK_EQ(param_layer_indices_[net_param_id].first, i);
       CHECK_EQ(param_layer_indices_[net_param_id].second, j);
-      if (param_owners_[net_param_id] < 0 ||
-            param_owners_[net_param_id] == net_param_id) {
+      if (param_owners_[net_param_id] < 0) {
         shared_param_layer = false;
       }
       net_param_id++;
@@ -787,84 +814,12 @@ void Net<Dtype>::ToProto(NetParameter* param, bool write_diff) const {
 }
 
 template <typename Dtype>
-void Net<Dtype>::Update(const bool sync_data, const bool clip_grads, const Dtype max_grad) {
-  // Set the diff of the first layer containing a shared parameter to sum of
-  // the diffs of all layers containing that shared parameter (Assumes that
-  // the learning rate, weight decay, etc. have already been accounted for in
-  // the current diff.)
-  for (int i = params_.size() - 1; i >= 0; --i) {
-    if (param_owners_[i] != i) { continue; }
-    const int count = params_[i]->count();
-    Dtype* this_diff;
-    Dtype* master_diff;
-    switch (Caffe::mode()) {
-    case Caffe::CPU:
-      this_diff = params_[i]->mutable_cpu_diff();
-      master_diff = master_diffs_[master_diffs_index_[i]]->mutable_cpu_diff();
-      caffe_copy(count, master_diff, this_diff);
-      caffe_set(count, Dtype(0), master_diff);
-      break;
-#ifndef CPU_ONLY
-    case Caffe::GPU:
-      this_diff = params_[i]->mutable_gpu_diff();
-      master_diff = master_diffs_[master_diffs_index_[i]]->mutable_gpu_diff();
-      caffe_copy(count, master_diff, this_diff);
-      caffe_gpu_set(count, Dtype(0), master_diff);
-      break;
-#else
-      NO_GPU;
-#endif
-    default:
-      LOG(FATAL) << "Unknown caffe mode: " << Caffe::mode();
-    }
-  }
-
-  if (sync_data) { LOG(INFO) << "Synching Weight Values"; }
-    //Occasionally synch the data between blobs to avoid divergence
-  if (sync_data) {
-    for (int i = 0; i < params_.size(); ++i) {
-      if (param_owners_[i] >= 0 && param_owners_[i] != i) { continue; }
-    }
-    return;
-  }
-
-  Dtype square_diff_norm = 0;
-  for (int i = 0; i < params_.size(); ++i) {
-    if (debug_info_) { UpdateDebugInfo(i); }
-    if (param_owners_[i] >= 0 && param_owners_[i] != i) { continue; }
-
-#ifdef CPU_ONLY
-    square_diff_norm += caffe_cpu_dot(params_[i]->count(), params_[i]->cpu_diff(), params_[i]->cpu_diff());
-#else
-    Dtype tmp = Dtype(0);
-    caffe_gpu_dot(params_[i]->count(), params_[i]->gpu_diff(), params_[i]->gpu_diff(), &tmp);
-    square_diff_norm += tmp;
-#endif
-  }
-
-
-  Dtype grad_scale = Dtype(1.0);
-  Dtype diff_norm = Dtype(0);
-  caffe_powx(1, &square_diff_norm, Dtype(0.5), &diff_norm);
-  if (clip_grads && diff_norm > max_grad) {
-    grad_scale = max_grad / diff_norm;
-    LOG(INFO) << "Gradient clipped: " << diff_norm << ", " << Dtype(1) / grad_scale; 
-  }
-
+void Net<Dtype>::Update() {
   // Now, update the owned parameters.
   for (int i = 0; i < params_.size(); ++i) {
-    if (param_owners_[i] >= 0 && param_owners_[i] != i) { continue; }
-#ifdef CPU_ONLY
-    caffe_scal(params_[i]->count(), grad_scale,
-               params_[i]->mutable_cpu_diff());
-#else
-    caffe_gpu_scal(params_[i]->count(), grad_scale,
-               params_[i]->mutable_gpu_diff());
-#endif
-
-    // Apply the diffs
+    if (param_owners_[i] >= 0) { continue; }
+    if (debug_info_) { UpdateDebugInfo(i); }
     params_[i]->Update();
-
   }
 }
 
