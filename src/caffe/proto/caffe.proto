@@ -733,6 +733,7 @@ message SliceParameter {
   // (e.g., -1 for the last axis).
   // By default, SliceLayer concatenates blobs along the "channels" axis (1).
   optional int32 axis = 3 [default = 1];
+  optional bool fast_wordvec_slice = 4 [default = false];
   repeated uint32 slice_point = 2;
 
   // DEPRECATED: alias for "axis" -- does not support negative indexing.

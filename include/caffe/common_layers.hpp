@@ -490,6 +490,7 @@ class SliceLayer : public Layer<Dtype> {
   int num_slices_;
   int slice_size_;
   int slice_axis_;
+  bool fast_wordvec_slice_;
   vector<int> slice_point_;
 };
 

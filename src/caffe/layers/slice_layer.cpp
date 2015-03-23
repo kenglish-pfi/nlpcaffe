@@ -67,15 +67,19 @@ void SliceLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
     }
   }
   CHECK_EQ(count, bottom[0]->count());
+  fast_wordvec_slice_ = (slice_axis_ == 2 &&
+    slice_param.fast_wordvec_slice());
 }
 
 template <typename Dtype>
 void SliceLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
-  if (slice_axis_ == 2) {
+  if (fast_wordvec_slice_) {
+    CHECK_EQ(bottom[0]->width(), 1);
     const int top_size = top.size();
     const Dtype* bottom_data = bottom[0]->cpu_data();
     for (int i = 0; i < top_size; ++i) {
+      CHECK_EQ(top[i]->height(), 1);
       Dtype* top_data = top[i]->mutable_cpu_data();
       for (int n = 0; n < bottom[0]->num(); ++n) {
         for (int c = 0; c < bottom[0]->channels(); ++c) {
@@ -108,7 +112,7 @@ template <typename Dtype>
 void SliceLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
   if (!propagate_down[0]) { return; }
-  if (slice_axis_ == 2) {
+  if (fast_wordvec_slice_) {
     const int top_size = top.size();
     Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
     for (int i = 0; i < top_size; ++i) {

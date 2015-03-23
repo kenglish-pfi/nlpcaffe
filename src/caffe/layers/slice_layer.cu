@@ -9,7 +9,7 @@ namespace caffe {
 template <typename Dtype>
 void SliceLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
-  if (slice_axis_ == 2) {
+  if (fast_wordvec_slice_) {
     Forward_cpu(bottom, top);
     return;
   }
@@ -34,7 +34,7 @@ template <typename Dtype>
 void SliceLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
   if (!propagate_down[0]) { return; }
-  if (slice_axis_ == 2) {
+  if (fast_wordvec_slice_) {
     Backward_cpu(top, propagate_down, bottom);
     return;
   }

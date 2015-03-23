@@ -149,6 +149,7 @@ def get_net(param, deploy, batch_size):
     target_wordvec_slice_layer.name = "target_wordvec_slice_layer"
     target_wordvec_slice_layer.type = "Slice"
     target_wordvec_slice_layer.slice_param.slice_dim = 2
+    target_wordvec_slice_layer.slice_param.fast_wordvec_slice = True
     target_wordvec_slice_layer.bottom.append('target_wordvec_layer')
     for i in range(param['target_length']):
         target_wordvec_slice_layer.top.append('target_wordvec%d' % i)
@@ -316,47 +317,48 @@ parser.add_argument('--make_data', action='store_true')
 args = parser.parse_args()
 
 
-def run(idx):
-    param = {}
+def run(idx, param):
+    base_param = {}
 
-    param['net_name'] = "RussellNet"
-    param['target_length'] = 30
-    param['target_vocab_size'] = 11000
-    param['num_categories'] = 11000
-    param['num_lstm_stacks'] = 1
-    param['category_size'] = 1
-    assert param['num_categories'] * param['category_size'] == param['target_vocab_size']
+    base_param['net_name'] = "RussellNet"
+    base_param['target_length'] = 30
+    base_param['target_vocab_size'] = 11000
+    base_param['num_categories'] = 11000
+    base_param['num_lstm_stacks'] = 1
+    base_param['category_size'] = 1
+    assert base_param['num_categories'] * base_param['category_size'] == base_param['target_vocab_size']
 
-    param['t_unknown_symbol'] = param['target_vocab_size'] - 3
-    param['t_start_symbol'] = param['target_vocab_size'] - 2
-    param['t_zero_symbol'] = param['target_vocab_size'] - 1
+    base_param['t_unknown_symbol'] = base_param['target_vocab_size'] - 3
+    base_param['t_start_symbol'] = base_param['target_vocab_size'] - 2
+    base_param['t_zero_symbol'] = base_param['target_vocab_size'] - 1
 
-    param['data_size_limit'] = 42068
-    #param['data_size_limit'] = 11 * 10 ** 6
-    param['rand_skip'] = min(param['data_size_limit'] - 1, 3 * 10 ** 7)
-    param['train_batch_size'] = 32
-    param['deploy_batch_size'] = 32
-    param['lstm_num_cells'] = 250
-    param['wordvec_length'] = 200
+    base_param['data_size_limit'] = 42068
+    #base_param['data_size_limit'] = 11 * 10 ** 6
+    base_param['rand_skip'] = min(param['data_size_limit'] - 1, 3 * 10 ** 7)
+    base_param['train_batch_size'] = 128
+    base_param['deploy_batch_size'] = 32
+    base_param['lstm_num_cells'] = 1000
+    base_param['wordvec_length'] = 1000
 
-    param['file_solver'] = "models/rnn/solver%d.prototxt" % idx
-    param['file_train_val_net'] = "models/rnn/train_val%d.prototxt" % idx
-    param['file_deploy_net'] = "models/rnn/deploy%d.prototxt" % idx
-    param['solver_test_interval'] = 500
-    param['solver_base_lr'] = 20
-    param['solver_weight_decay'] = 0.0000
-    param['solver_lr_policy'] = "fixed"
-    param['solver_display'] = 20
-    param['solver_max_iter'] = 30000
-    param['solver_max_grad'] = 20.0
-    param['solver_snapshot'] = 10000
-    param['solver_lr_policy'] = 'step'
-    param['solver_stepsize'] = 5000
-    param['solver_gamma'] = 0.8
-    param['solver_snapshot_prefix'] = "%s/%s.%d" % (config.snapshot_dir, os.path.dirname(os.path.realpath(__file__)).split('/')[-1], idx)
-    param['solver_random_seed'] = 17
-    param['solver_solver_mode'] = SolverParameter.GPU
-    param['solver_test_iter'] = 10
+    base_param['file_solver'] = "models/rnn/solver%d.prototxt" % idx
+    base_param['file_train_val_net'] = "models/rnn/train_val%d.prototxt" % idx
+    base_param['file_deploy_net'] = "models/rnn/deploy%d.prototxt" % idx
+    base_param['solver_test_interval'] = 500
+    base_param['solver_base_lr'] = 20
+    base_param['solver_weight_decay'] = 0.0000
+    base_param['solver_lr_policy'] = "fixed"
+    base_param['solver_display'] = 20
+    base_param['solver_max_iter'] = 30000
+    base_param['solver_max_grad'] = 20.0
+    base_param['solver_snapshot'] = 10000
+    base_param['solver_lr_policy'] = 'step'
+    base_param['solver_stepsize'] = 5000
+    base_param['solver_gamma'] = 0.8
+    base_param['solver_snapshot_prefix'] = "%s/%s.%d" % (config.snapshot_dir, os.path.dirname(os.path.realpath(__file__)).split('/')[-1], idx)
+    base_param['solver_random_seed'] = 17
+    base_param['solver_solver_mode'] = SolverParameter.GPU
+    base_param['solver_test_iter'] = 10
+    param.update(base_param)
 
     if args.make_data:
         make_data(param)
