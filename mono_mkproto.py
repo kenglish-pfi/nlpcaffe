@@ -69,7 +69,7 @@ def get_solver(param):
     solver.lr_policy = param['solver_lr_policy']
     solver.display = param['solver_display']
     solver.max_iter = param['solver_max_iter']
-    solver.max_grad = param['solver_max_grad']
+    solver.clip_gradients = param['solver_clip_gradients']
     solver.snapshot = param['solver_snapshot']
     solver.lr_policy = param['solver_lr_policy']
     solver.stepsize = param['solver_stepsize']
@@ -349,7 +349,7 @@ def run(idx, param):
     base_param['solver_lr_policy'] = "fixed"
     base_param['solver_display'] = 20
     base_param['solver_max_iter'] = 30000
-    base_param['solver_max_grad'] = 20.0
+    base_param['solver_clip_gradients'] = 20.0
     base_param['solver_snapshot'] = 10000
     base_param['solver_lr_policy'] = 'step'
     base_param['solver_stepsize'] = 5000
