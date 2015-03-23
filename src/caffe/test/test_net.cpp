@@ -1009,9 +1009,8 @@ TYPED_TEST(NetTest, TestSharedWeightsUpdate) {
   Blob<Dtype>* ip2_weights = this->net_->layers()[2]->blobs()[0].get();
   // Check that data blobs of shared weights share the same location in memory.
   EXPECT_EQ(ip1_weights->cpu_data(), ip2_weights->cpu_data());
-  // Check that diff blobs of shared weights are at different locations in
-  // memory.  (The diffs should be accumulated at update time.)
-  EXPECT_NE(ip1_weights->cpu_diff(), ip2_weights->cpu_diff());
+  // Check that diff blobs of shared weights share the same location in memory.
+  EXPECT_EQ(ip1_weights->cpu_diff(), ip2_weights->cpu_diff());
   this->net_->Forward(bottom);
   this->net_->Backward();
   // Compute the expected update as the data minus the two diffs.
@@ -1025,14 +1024,14 @@ TYPED_TEST(NetTest, TestSharedWeightsUpdate) {
   for (int i = 0; i < count; ++i) {
     EXPECT_NE(0, ip1_weights->cpu_diff()[i]);
     EXPECT_NE(0, ip2_weights->cpu_diff()[i]);
-    EXPECT_NE(ip1_weights->cpu_diff()[i], ip2_weights->cpu_diff()[i]);
+    EXPECT_EQ(ip1_weights->cpu_diff()[i], ip2_weights->cpu_diff()[i]);
   }
-  caffe_axpy(count, Dtype(1), ip2_weights->cpu_diff(),
-             shared_params.mutable_cpu_diff());
+  //caffe_axpy(count, Dtype(1), ip2_weights->cpu_diff(),
+             //shared_params.mutable_cpu_diff());
   caffe_axpy(count, Dtype(-1), shared_params.cpu_diff(),
              shared_params.mutable_cpu_data());
   const Dtype* expected_updated_params = shared_params.cpu_data();
-  this->net_->Update(false, false, Dtype(0.0));
+  this->net_->Update();
   const Dtype* actual_updated_params = ip1_weights->cpu_data();
   for (int i = 0; i < count; ++i) {
     EXPECT_EQ(expected_updated_params[i], actual_updated_params[i]);
@@ -1074,7 +1073,7 @@ TYPED_TEST(NetTest, TestSharedWeightsUpdate) {
              unshared_params2.mutable_cpu_data());
   const Dtype* expected_updated_params1 = unshared_params1.cpu_data();
   const Dtype* expected_updated_params2 = unshared_params2.cpu_data();
-  this->net_->Update(false, false, Dtype(0.0));
+  this->net_->Update();
   const Dtype* actual_updated_params1 = ip1_weights->cpu_data();
   const Dtype* actual_updated_params2 = ip2_weights->cpu_data();
   for (int i = 0; i < count; ++i) {
@@ -1098,11 +1097,10 @@ TYPED_TEST(NetTest, TestSharedWeightsResume) {
   Blob<Dtype>* ip2_weights = this->net_->layers()[2]->blobs()[0].get();
   // Check that data blobs of shared weights share the same location in memory.
   EXPECT_EQ(ip1_weights->cpu_data(), ip2_weights->cpu_data());
-  // Check that diff blobs of shared weights are at different locations in
-  // memory.  (The diffs should be accumulated at update time.)
-  EXPECT_NE(ip1_weights->cpu_diff(), ip2_weights->cpu_diff());
+  // Check that diff blobs of shared weights share the same location in memory.
+  EXPECT_EQ(ip1_weights->cpu_diff(), ip2_weights->cpu_diff());
   this->net_->ForwardBackward(bottom);
-  this->net_->Update(false, false, Dtype(0.0));
+  this->net_->Update();
   Blob<Dtype> shared_params;
   const bool kReshape = true;
   const bool kCopyDiff = false;
@@ -1128,9 +1126,8 @@ TYPED_TEST(NetTest, TestSharedWeightsResume) {
   for (int i = 0; i < count; ++i) {
     EXPECT_FLOAT_EQ(shared_params.cpu_data()[i], ip1_weights->cpu_data()[i]);
   }
-  // Check that diff blobs of shared weights are at different locations in
-  // memory.  (The diffs should be accumulated at update time.)
-  EXPECT_NE(ip1_weights->cpu_diff(), ip2_weights->cpu_diff());
+  // Check that diff blobs of shared weights share the same location in memory.
+  EXPECT_EQ(ip1_weights->cpu_diff(), ip2_weights->cpu_diff());
 }
 
 TYPED_TEST(NetTest, TestParamPropagateDown) {
