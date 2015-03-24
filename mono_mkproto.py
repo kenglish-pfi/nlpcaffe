@@ -269,7 +269,6 @@ def get_net(param, deploy, batch_size):
         category_loss_layer.type = "SoftmaxWithLoss"
         category_loss_layer.bottom.append("inner_product")
         category_loss_layer.bottom.append("target_category_id")
-        category_loss_layer.bottom.append("target")
         category_loss_layer.top.append(category_loss_layer.name)
         #category_loss_layer.softmax_loss_param.empty_word = param['t_zero_symbol']
 
@@ -278,7 +277,6 @@ def get_net(param, deploy, batch_size):
         local_loss_layer.type = "SoftmaxWithLoss"
         local_loss_layer.bottom.append("softmax_product")
         local_loss_layer.bottom.append("target_local_id")
-        local_loss_layer.bottom.append("target")
         local_loss_layer.top.append(local_loss_layer.name)
         #category_loss_layer.softmax_loss_param.empty_word = param['t_zero_symbol']
 
