@@ -184,6 +184,7 @@ def get_net(param, deploy, batch_size):
 
             concat_layer.top.append(concat_layer.name)
             concat_layer.type = "Concat"
+            concat_layer.concat_param.fast_lstm_concat = True
             if j == 0:
                 concat_layer.bottom.append('target_wordvec%d' % i)
             if j >= 1:

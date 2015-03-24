@@ -12,6 +12,7 @@ void ConcatLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   const ConcatParameter& concat_param = this->layer_param_.concat_param();
   CHECK(!(concat_param.has_axis() && concat_param.has_concat_dim()))
       << "Either axis or concat_dim should be specified; not both.";
+  fast_lstm_concat_ = this->layer_param_.concat_param().fast_lstm_concat();
 }
 
 template <typename Dtype>
@@ -47,6 +48,12 @@ void ConcatLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
     top_shape[concat_axis_] += bottom[i]->shape(concat_axis_);
   }
   top[0]->Reshape(top_shape);
+  if (fast_lstm_concat_) {
+    top_buffer_.Reshape( top[0]->num(),
+        top[0]->channels(),
+        top[0]->height(),
+        top[0]->width());
+  }
   CHECK_EQ(bottom_count_sum, top[0]->count());
 }
 

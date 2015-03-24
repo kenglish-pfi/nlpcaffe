@@ -143,6 +143,7 @@ class ConcatLayer : public Layer<Dtype> {
   int num_concats_;
   int concat_input_size_;
   int concat_axis_;
+  bool fast_lstm_concat_;
 };
 
 /**
