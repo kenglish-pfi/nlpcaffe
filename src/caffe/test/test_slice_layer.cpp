@@ -38,7 +38,7 @@ class SliceLayerTest : public MultiDeviceTest<TypeParam> {
   }
 
   virtual void ReduceBottomBlobSize() {
-    blob_bottom_->Reshape(4, 5, 2, 2);
+    blob_bottom_->Reshape(4, 5, 2, 1);
     FillerParameter filler_param;
     GaussianFiller<Dtype> filler(filler_param);
     filler.Fill(this->blob_bottom_);
@@ -180,6 +180,19 @@ TYPED_TEST(SliceLayerTest, TestGradientAcrossChannels) {
   LayerParameter layer_param;
   const int kSlicePoint = 4;
   layer_param.mutable_slice_param()->add_slice_point(kSlicePoint);
+  SliceLayer<Dtype> layer(layer_param);
+  GradientChecker<Dtype> checker(1e-2, 1e-3);
+  checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
+    this->blob_top_vec_0_);
+}
+
+TYPED_TEST(SliceLayerTest, TestGradientAcrossHeight) {
+  typedef typename TypeParam::Dtype Dtype;
+  // Gradient checks are slow; reduce blob size.
+  this->ReduceBottomBlobSize();
+  LayerParameter layer_param;
+  layer_param.mutable_slice_param()->set_axis(2);
+  layer_param.mutable_slice_param()->set_fast_wordvec_slice(true);
   SliceLayer<Dtype> layer(layer_param);
   GradientChecker<Dtype> checker(1e-2, 1e-3);
   checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,

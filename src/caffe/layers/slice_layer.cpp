@@ -84,7 +84,7 @@ void SliceLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       for (int n = 0; n < bottom[0]->num(); ++n) {
         for (int c = 0; c < bottom[0]->channels(); ++c) {
           // top height_ and width_ are assumed to be 1 from layer SetUp
-          const int idx = n * bottom[0]->channels();
+          const int idx = n * bottom[0]->channels() + c;
           top_data[idx] = bottom_data[i + idx * top_size];
         }
       }
