@@ -474,6 +474,7 @@ void SGDSolver<Dtype>::ComputeUpdateValue() {
       Dtype local_rate = rate * net_params_lr[param_id];
       Dtype local_decay = weight_decay * net_params_weight_decay[param_id];
 
+      if (this->net_->param_owners()[param_id] >= 0) { continue; }
       if (local_decay) {
         if (regularization_type == "L2") {
           // add weight decay
@@ -516,6 +517,7 @@ void SGDSolver<Dtype>::ComputeUpdateValue() {
       Dtype local_rate = rate * net_params_lr[param_id];
       Dtype local_decay = weight_decay * net_params_weight_decay[param_id];
 
+      if (this->net_->param_owners()[param_id] >= 0) { continue; }
       if (local_decay) {
         if (regularization_type == "L2") {
           // add weight decay
