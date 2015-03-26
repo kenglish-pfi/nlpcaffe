@@ -10,6 +10,7 @@ import subprocess
 import itertools
 import argparse
 import sys
+import numpy as np
 sys.path.append('python/caffe/proto'); import caffe_pb2
 
 from caffe_pb2 import NetParameter, LayerParameter, DataParameter, SolverParameter, ParamSpec
@@ -39,7 +40,6 @@ def make_data(param):
                 allX.append(vocab_transform(en))
 
         print len(allX)
-        assert phase != 'train' or len(allX) > param['rand_skip']
 
 
         with env.begin(write=True) as txn:
@@ -69,7 +69,7 @@ def get_solver(param):
     solver.lr_policy = param['solver_lr_policy']
     solver.display = param['solver_display']
     solver.max_iter = param['solver_max_iter']
-    #solver.clip_gradients = param['solver_clip_gradients']
+    solver.clip_gradients = param['solver_clip_gradients']
     solver.snapshot = param['solver_snapshot']
     solver.lr_policy = param['solver_lr_policy']
     solver.stepsize = param['solver_stepsize']
@@ -109,7 +109,6 @@ def get_net(param, deploy, batch_size):
         train_data.data_param.source = 'models/rnn/rnn_train_db'
         train_data.data_param.backend = DataParameter.LMDB
         train_data.data_param.batch_size = batch_size
-        train_data.data_param.rand_skip = param['rand_skip']
 
         if True:
             test_data = net.layer.add()
@@ -119,7 +118,6 @@ def get_net(param, deploy, batch_size):
             test_data.data_param.source = 'models/rnn/rnn_test_db'
             test_data.data_param.backend = DataParameter.LMDB
             test_data.data_param.batch_size = batch_size
-            test_data.data_param.rand_skip = param['rand_skip']
 
             test_data_rule = test_data.include.add()
             test_data_rule.phase = caffe_pb2.TEST
@@ -135,6 +133,16 @@ def get_net(param, deploy, batch_size):
     data_slice_layer.top.append('target_words')
     data_slice_layer.top.append('target')
     data_slice_layer.slice_param.slice_point.append(param['target_length'])
+
+    label_slice_layer = net.layer.add()
+    label_slice_layer.name = "label_slice_layer"
+    label_slice_layer.type = "Slice"
+    label_slice_layer.slice_param.slice_dim = 1
+    label_slice_layer.bottom.append('target')
+    for i in range(param['target_length']):
+        label_slice_layer.top.append('label%d' % i)
+        if i != 0:
+            label_slice_layer.slice_param.slice_point.append(i)
 
     target_wordvec_layer = net.layer.add()
     target_wordvec_layer.name = "target_wordvec_layer"
@@ -220,7 +228,7 @@ def get_net(param, deploy, batch_size):
             dropout_layer.type = "Dropout"
             dropout_layer.top.append(dropout_layer.name)
             dropout_layer.bottom.append('lstm%d_hidden%d' % (j, i))
-            dropout_layer.dropout_param.dropout_ratio = 0.5
+            dropout_layer.dropout_param.dropout_ratio = param['dropout_ratio']
 
     hidden_concat_layer = net.layer.add()
     hidden_concat_layer.type = "Concat"
@@ -236,50 +244,32 @@ def get_net(param, deploy, batch_size):
     inner_product_layer.bottom.append('hidden_concat')
     inner_product_layer.type = "InnerProduct"
     inner_product_layer.inner_product_param.bias_term = False
-    inner_product_layer.inner_product_param.num_output = param['num_categories']
+    inner_product_layer.inner_product_param.num_output = param['target_vocab_size']
     add_weight_filler(inner_product_layer.inner_product_param.weight_filler)
 
-    softmax_product_layer = net.layer.add()
-    softmax_product_layer.name = "softmax_product"
-    softmax_product_layer.top.append(softmax_product_layer.name)
-    softmax_product_layer.top.append('target_local_id')
-    softmax_product_layer.top.append('target_category_id')
-    softmax_product_layer.bottom.append('hidden_concat')
-    softmax_product_layer.bottom.append('target')
-    softmax_product_layer.type = "SoftmaxProduct"
-    softmax_product_layer.softmax_product_param.num_output = param['category_size']
-    softmax_product_layer.softmax_product_param.num_categories = param['num_categories']
-    add_weight_filler(softmax_product_layer.softmax_product_param.weight_filler)
+    label_concat_layer = net.layer.add()
+    label_concat_layer.name = "label_concat"
+    label_concat_layer.type = "Concat"
+    label_concat_layer.concat_param.concat_dim = 0
+    label_concat_layer.top.append(label_concat_layer.name)
+    for i in range(param['target_length']):
+        label_concat_layer.bottom.append('label%d' % i)
 
     if deploy:
-        category_prob_layer = net.layer.add()
-        category_prob_layer.name = "category_prob"
-        category_prob_layer.type = "Softmax"
-        category_prob_layer.bottom.append("inner_product")
-        category_prob_layer.top.append(category_prob_layer.name)
+        word_prob_layer = net.layer.add()
+        word_prob_layer.name = "word_probs"
+        word_prob_layer.top.append(word_prob_layer.name)
+        word_prob_layer.type = "Softmax"
+        word_prob_layer.bottom.append("inner_product")
 
-        local_prob_layer = net.layer.add()
-        local_prob_layer.name = "local_prob"
-        local_prob_layer.type = "Softmax"
-        local_prob_layer.bottom.append("softmax_product")
-        local_prob_layer.top.append(local_prob_layer.name)
     else:
-        category_loss_layer = net.layer.add()
-        category_loss_layer.name = "category_loss"
-        category_loss_layer.type = "SoftmaxWithLoss"
-        category_loss_layer.bottom.append("inner_product")
-        category_loss_layer.bottom.append("target_category_id")
-        category_loss_layer.top.append(category_loss_layer.name)
-        category_loss_layer.loss_param.ignore_label = param['t_zero_symbol'] % param['num_categories']
-
-        local_loss_layer = net.layer.add()
-        local_loss_layer.name = "local_loss"
-        local_loss_layer.type = "SoftmaxWithLoss"
-        local_loss_layer.bottom.append("softmax_product")
-        local_loss_layer.bottom.append("target_local_id")
-        local_loss_layer.top.append(local_loss_layer.name)
-        #local_loss_layer.loss_param.ignore_label = param['t_zero_symbol'] // param['num_categories']
-        #category_loss_layer.softmax_loss_param.empty_word = param['t_zero_symbol']
+        word_loss_layer = net.layer.add()
+        word_loss_layer.name = "word_loss"
+        word_loss_layer.type = "SoftmaxWithLoss"
+        word_loss_layer.bottom.append("inner_product")
+        word_loss_layer.bottom.append("label_concat")
+        word_loss_layer.top.append(word_loss_layer.name)
+        word_loss_layer.loss_param.ignore_label = param['t_zero_symbol']
 
     silence_layer = net.layer.add()
     silence_layer.name = "silence"
@@ -314,61 +304,72 @@ input_dim: 1
 
 
 
-def get_base_param(idx):
+def get_base_param(run_id):
     base_param = {}
-
     base_param['net_name'] = "RussellNet"
     base_param['target_length'] = 30
     base_param['target_vocab_size'] = 11000
-    base_param['num_categories'] = 11000
     base_param['num_lstm_stacks'] = 1
-    base_param['category_size'] = 1
-    assert base_param['num_categories'] * base_param['category_size'] == base_param['target_vocab_size']
 
     base_param['t_unknown_symbol'] = base_param['target_vocab_size'] - 3
     base_param['t_start_symbol'] = base_param['target_vocab_size'] - 2
     base_param['t_zero_symbol'] = base_param['target_vocab_size'] - 1
 
-    base_param['data_size_limit'] = 42068
     #base_param['data_size_limit'] = 11 * 10 ** 6
-    base_param['rand_skip'] = min(base_param['data_size_limit'] - 1, 3 * 10 ** 7)
+    base_param['data_size_limit'] = 42068
     base_param['train_batch_size'] = 32
     base_param['deploy_batch_size'] = 32
     base_param['lstm_num_cells'] = 250
     base_param['wordvec_length'] = 250
+    base_param['dropout_ratio'] = np.random.choice([0.2, 0.5])
 
-    base_param['file_solver'] = "models/rnn/solver%d.prototxt" % idx
-    base_param['file_train_val_net'] = "models/rnn/train_val%d.prototxt" % idx
-    base_param['file_deploy_net'] = "models/rnn/deploy%d.prototxt" % idx
+    base_param['file_solver'] = "models/rnn/solver%s.prototxt" % run_id
+    base_param['file_train_val_net'] = "models/rnn/train_val%s.prototxt" % run_id
+    base_param['file_deploy_net'] = "models/rnn/deploy%s.prototxt" % run_id
     base_param['solver_test_interval'] = 500
-    base_param['solver_base_lr'] = 1
+    #base_param['solver_base_lr'] = 1
+    base_param['solver_base_lr'] = np.round(0.1 * 100 ** random.random(), 2)
     base_param['solver_weight_decay'] = 0.0000
     base_param['solver_lr_policy'] = "fixed"
     base_param['solver_display'] = 20
-    base_param['solver_max_iter'] = 30000
-    base_param['solver_clip_gradients'] = 20.0
+    base_param['solver_max_iter'] = 10000
+    #base_param['solver_clip_gradients'] = -1
+    base_param['solver_clip_gradients'] = np.random.choice([-1, 0.01, 0.1, 1])
     base_param['solver_snapshot'] = 10000
     base_param['solver_lr_policy'] = 'step'
     base_param['solver_stepsize'] = 5000
-    base_param['solver_gamma'] = 0.8
-    base_param['solver_snapshot_prefix'] = "%s/%s.%d" % (config.snapshot_dir, os.path.dirname(os.path.realpath(__file__)).split('/')[-1], idx)
+    #base_param['solver_gamma'] = 0.8
+    base_param['solver_gamma'] = np.random.choice([1, 0.8, 0.6, 0.4])
+    base_param['solver_snapshot_prefix'] = "%s/%s.%s" % (config.snapshot_dir, os.path.dirname(os.path.realpath(__file__)).split('/')[-1], run_id)
     base_param['solver_random_seed'] = 17
     base_param['solver_solver_mode'] = SolverParameter.GPU
-    base_param['solver_test_iter'] = 10
+    base_param['solver_test_iter'] = 30
     return base_param
 
 def run(idx, param):
-    param = get_base_param(idx)
     write_solver(param)
     write_net(param)
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--make_data', action='store_true')
+    parser.add_argument('--launch', action='store_true')
     args = parser.parse_args()
     if args.make_data:
-        make_data(param)
-    run(1, {})
+        make_data(get_base_param(0))
+    if args.launch:
+        for i in range(10):
+            i1 = '%s.1' % str(i)
+            param1 = get_base_param(i1)
+            run(i1, param1)
+            p1 = subprocess.Popen('mpirun -n 1 ./build/tools/caffe train --solver=./models/rnn/solver%s.prototxt 2>&1 --gpu 1 | tee a%s.txt' % (i1, i1), shell=True)
+            i2 = '%s.2' % str(i)
+            param2 = get_base_param(i2)
+            run(i2, param2)
+            p2 = subprocess.Popen('mpirun -n 1 ./build/tools/caffe train --solver=./models/rnn/solver%s.prototxt 2>&1 --gpu 2 | tee a%s.txt' % (i2, i2), shell=True)
+            p1.wait()
+            p2.wait()
+
 
 if __name__ == '__main__':
     main()
