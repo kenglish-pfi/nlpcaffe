@@ -69,7 +69,7 @@ def get_solver(param):
     solver.lr_policy = param['solver_lr_policy']
     solver.display = param['solver_display']
     solver.max_iter = param['solver_max_iter']
-    solver.clip_gradients = param['solver_clip_gradients']
+    #solver.clip_gradients = param['solver_clip_gradients']
     solver.snapshot = param['solver_snapshot']
     solver.lr_policy = param['solver_lr_policy']
     solver.stepsize = param['solver_stepsize']
@@ -270,7 +270,7 @@ def get_net(param, deploy, batch_size):
         category_loss_layer.bottom.append("inner_product")
         category_loss_layer.bottom.append("target_category_id")
         category_loss_layer.top.append(category_loss_layer.name)
-        #category_loss_layer.softmax_loss_param.empty_word = param['t_zero_symbol']
+        category_loss_layer.loss_param.ignore_label = param['t_zero_symbol'] % param['num_categories']
 
         local_loss_layer = net.layer.add()
         local_loss_layer.name = "local_loss"
@@ -278,6 +278,7 @@ def get_net(param, deploy, batch_size):
         local_loss_layer.bottom.append("softmax_product")
         local_loss_layer.bottom.append("target_local_id")
         local_loss_layer.top.append(local_loss_layer.name)
+        #local_loss_layer.loss_param.ignore_label = param['t_zero_symbol'] // param['num_categories']
         #category_loss_layer.softmax_loss_param.empty_word = param['t_zero_symbol']
 
     silence_layer = net.layer.add()
@@ -311,12 +312,9 @@ input_dim: 1
 ''' % (param['deploy_batch_size'], 2 * param['target_length']))
         f.write(str(get_net(param, deploy=True, batch_size = param['deploy_batch_size'])))
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--make_data', action='store_true')
-args = parser.parse_args()
 
 
-def run(idx, param):
+def get_base_param(idx):
     base_param = {}
 
     base_param['net_name'] = "RussellNet"
@@ -334,16 +332,16 @@ def run(idx, param):
     base_param['data_size_limit'] = 42068
     #base_param['data_size_limit'] = 11 * 10 ** 6
     base_param['rand_skip'] = min(base_param['data_size_limit'] - 1, 3 * 10 ** 7)
-    base_param['train_batch_size'] = 128
+    base_param['train_batch_size'] = 32
     base_param['deploy_batch_size'] = 32
-    base_param['lstm_num_cells'] = 1000
-    base_param['wordvec_length'] = 1000
+    base_param['lstm_num_cells'] = 250
+    base_param['wordvec_length'] = 250
 
     base_param['file_solver'] = "models/rnn/solver%d.prototxt" % idx
     base_param['file_train_val_net'] = "models/rnn/train_val%d.prototxt" % idx
     base_param['file_deploy_net'] = "models/rnn/deploy%d.prototxt" % idx
     base_param['solver_test_interval'] = 500
-    base_param['solver_base_lr'] = 20
+    base_param['solver_base_lr'] = 1
     base_param['solver_weight_decay'] = 0.0000
     base_param['solver_lr_policy'] = "fixed"
     base_param['solver_display'] = 20
@@ -357,14 +355,19 @@ def run(idx, param):
     base_param['solver_random_seed'] = 17
     base_param['solver_solver_mode'] = SolverParameter.GPU
     base_param['solver_test_iter'] = 10
-    param.update(base_param)
+    return base_param
 
-    if args.make_data:
-        make_data(param)
+def run(idx, param):
+    param = get_base_param(idx)
     write_solver(param)
     write_net(param)
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--make_data', action='store_true')
+    args = parser.parse_args()
+    if args.make_data:
+        make_data(param)
     run(1, {})
 
 if __name__ == '__main__':
