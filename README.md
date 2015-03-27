@@ -1,6 +1,8 @@
 # NLP-Caffe
 
-NLP-Caffe is a pull request on the Caffe framework developed by Yangqing Jia and Evan Shelhamer, among other members of the BVLC lab at Berkeley and a large number of independent online contributers. This fork makes it easier for NLP users to get started without merging C++ code. Currently, there is an example of a language model for the Penn Tree Bank using LSTMs that processes 20,000 words per second and achieves a perplexity of 128. More examples for Machine Translation using the encoder-decoder model and character-level RNNs will be forthcoming. Eventually this code should be merged into the Caffe master branch.
+NLP-Caffe is a pull request on the Caffe framework developed by Yangqing Jia and Evan Shelhamer, among other members of the BVLC lab at Berkeley and a large number of independent online contributers. 
+
+This fork makes it easier for NLP users to get started without merging C++ code. Currently, there is an example of a language model for the Penn Tree Bank using LSTMs that processes 20,000 words per second and achieves a perplexity of 128. More examples for Machine Translation using the encoder-decoder model and character-level RNNs will be forthcoming. Eventually this code should be merged into the Caffe master branch. This work was performed under the guidance of <a href="http://nlp.stanford.edu/~manning/">Chris Manning</a> and with the invaluable expertise of <a href="http://stanford.edu/~lmthang/">Thang Luong</a>.
 
 # Installation
 
