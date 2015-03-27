@@ -4,8 +4,22 @@ NLP-Caffe is a pull request on the Caffe framework developed by Yangqing Jia and
 
 # Installation
 
-Please consult the Caffe <a href="http://caffe.berkeleyvision.org/installation.html">installation instructions</a> first. After successfully installing caffe, just clone this repo and run `make -j8` from the NLP-Caffe folder.
+Please consult the Caffe <a href="http://caffe.berkeleyvision.org/installation.html">installation instructions</a> first. After successfully installing caffe, just clone this repo and run `make -j8 && make pycaffe` from the NLP-Caffe folder.
 
-To run the python LMDB database generation, you will also need to install <a href="https://lmdb.readthedocs.org/en/release/">py-lmdb</a> with:
+To run the python LMDB database generation, you will also need to install <a href="https://github.com/dw/py-lmdb/">py-lmdb</a> with:
 
     pip install py-lmdb
+
+# Tutorial
+
+First, cd to the caffe root directory and download the data for the Penn Tree Bank with:
+
+    ./data/ptb/get_ptb.sh
+
+Using this data, you can generate the LMDB database and the architecture train_val.prototxt with:
+
+    ./examples/ptb/create_ptb.sh
+    
+You'll notice this generates train, test, and validation databases in examples/ptb. It also generates the train_val.prototxt architecture file and the solver.prototxt hyperparameter file. You can now begin to train the network with:
+
+    ./examples/ptb/train_ptb.sh
