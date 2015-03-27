@@ -1,1 +1,5 @@
-./build/tools/caffe train --solver=./examples/ptb/solver.prototxt
+#!/usr/bin/env sh
+
+TOOLS=./build/tools
+
+$TOOLS/caffe train --solver=examples/ptb/solver.prototxt
