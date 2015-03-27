@@ -18,7 +18,7 @@ First, cd to the caffe root directory and download the data for the Penn Tree Ba
 
     ./data/ptb/get_ptb.sh
 
-Using this data, you can generate the LMDB database and the architecture train_val.prototxt with:
+Using this data, you can generate the LMDB databases and the architecture train_val.prototxt with:
 
     ./examples/ptb/create_ptb.sh --make_data
 
