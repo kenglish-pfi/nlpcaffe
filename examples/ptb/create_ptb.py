@@ -13,7 +13,7 @@ from caffe_pb2 import Datum
 
 def make_data(param):
     for phase in ['train', 'valid', 'test']:
-        db_name = './examples/ptb/rnn_%s_db' % phase
+        db_name = './examples/ptb/ptb_%s_db' % phase
         subprocess.call(['rm', '-rf', db_name])
         env = lmdb.open(db_name, map_size=2147483648*8)
 
@@ -99,7 +99,7 @@ def get_net(param, deploy, batch_size):
         train_data.type = "Data"
         train_data.name = "data"
         train_data.top.append(train_data.name)
-        train_data.data_param.source = 'models/rnn/rnn_train_db'
+        train_data.data_param.source = 'examples/ptb/ptb_train_db'
         train_data.data_param.backend = DataParameter.LMDB
         train_data.data_param.batch_size = batch_size
 
@@ -108,7 +108,7 @@ def get_net(param, deploy, batch_size):
             test_data.type = "Data"
             test_data.name = "data"
             test_data.top.append(test_data.name)
-            test_data.data_param.source = 'models/rnn/rnn_test_db'
+            test_data.data_param.source = 'examples/ptb/ptb_test_db'
             test_data.data_param.backend = DataParameter.LMDB
             test_data.data_param.batch_size = batch_size
 
@@ -313,9 +313,9 @@ def get_base_param():
     base_param['wordvec_length'] = 250
     base_param['dropout_ratio'] = np.random.choice([0.2, 0.5])
 
-    base_param['file_solver'] = "models/rnn/solver.prototxt"
-    base_param['file_train_val_net'] = "models/rnn/train_val.prototxt"
-    base_param['file_deploy_net'] = "models/rnn/deploy.prototxt"
+    base_param['file_solver'] = "examples/ptb/solver.prototxt"
+    base_param['file_train_val_net'] = "examples/ptb/train_val.prototxt"
+    base_param['file_deploy_net'] = "examples/ptb/deploy.prototxt"
     #base_param['solver_base_lr'] = 1
     base_param['solver_base_lr'] = np.round(1 * 30 ** random.random(), 2)
     base_param['solver_weight_decay'] = 0.0000
