@@ -1,15 +1,10 @@
 #!/usr/bin/env python
-
-from copy import deepcopy
-import config
-import os
 import sys
 import lmdb
 import random
 import subprocess
 import itertools
 import argparse
-import sys
 import numpy as np
 sys.path.append('python/caffe/proto'); import caffe_pb2
 
@@ -18,8 +13,8 @@ from caffe_pb2 import Datum
 
 def make_data(param):
     for phase in ['train', 'valid', 'test']:
-        db_name = './models/rnn/rnn_%s_db' % phase
-        subprocess.call(['rm', '-r', db_name])
+        db_name = './examples/ptb/rnn_%s_db' % phase
+        subprocess.call(['rm', '-rf', db_name])
         env = lmdb.open(db_name, map_size=2147483648*8)
 
 
@@ -34,13 +29,11 @@ def make_data(param):
             return target_line
 
         allX = []
-        #with open('%s/1bil/shuffled_%s.40k.id.en' % (config.data_dir, phase), 'r') as f1: 
-        with open('%s/penn/%s_indices.txt' % (config.data_dir, phase), 'r') as f1: 
-            for en in itertools.islice(f1.readlines(), param['data_size_limit']):
+        with open('./data/ptb/%s_indices.txt' % phase, 'r') as f1: 
+            for en in f1.readlines():
                 allX.append(vocab_transform(en))
 
         print len(allX)
-
 
         with env.begin(write=True) as txn:
             for i, target_line in enumerate(allX):
@@ -303,10 +296,9 @@ input_dim: 1
         f.write(str(get_net(param, deploy=True, batch_size = param['deploy_batch_size'])))
 
 
-
-def get_base_param(run_id):
+def get_base_param():
     base_param = {}
-    base_param['net_name'] = "RussellNet"
+    base_param['net_name'] = "ManningNet"
     base_param['target_length'] = 30
     base_param['target_vocab_size'] = 11000
     base_param['num_lstm_stacks'] = 1
@@ -315,61 +307,46 @@ def get_base_param(run_id):
     base_param['t_start_symbol'] = base_param['target_vocab_size'] - 2
     base_param['t_zero_symbol'] = base_param['target_vocab_size'] - 1
 
-    #base_param['data_size_limit'] = 11 * 10 ** 6
-    base_param['data_size_limit'] = 42068
     base_param['train_batch_size'] = 32
     base_param['deploy_batch_size'] = 32
     base_param['lstm_num_cells'] = 250
     base_param['wordvec_length'] = 250
     base_param['dropout_ratio'] = np.random.choice([0.2, 0.5])
 
-    base_param['file_solver'] = "models/rnn/solver%s.prototxt" % run_id
-    base_param['file_train_val_net'] = "models/rnn/train_val%s.prototxt" % run_id
-    base_param['file_deploy_net'] = "models/rnn/deploy%s.prototxt" % run_id
-    base_param['solver_test_interval'] = 500
+    base_param['file_solver'] = "models/rnn/solver.prototxt"
+    base_param['file_train_val_net'] = "models/rnn/train_val.prototxt"
+    base_param['file_deploy_net'] = "models/rnn/deploy.prototxt"
     #base_param['solver_base_lr'] = 1
-    base_param['solver_base_lr'] = np.round(0.1 * 100 ** random.random(), 2)
+    base_param['solver_base_lr'] = np.round(1 * 30 ** random.random(), 2)
     base_param['solver_weight_decay'] = 0.0000
     base_param['solver_lr_policy'] = "fixed"
     base_param['solver_display'] = 20
-    base_param['solver_max_iter'] = 10000
+    base_param['solver_max_iter'] = 100
     #base_param['solver_clip_gradients'] = -1
-    base_param['solver_clip_gradients'] = np.random.choice([-1, 0.01, 0.1, 1])
+    base_param['solver_clip_gradients'] = np.random.choice([0.5, 1, 2, 10])
     base_param['solver_snapshot'] = 10000
     base_param['solver_lr_policy'] = 'step'
     base_param['solver_stepsize'] = 5000
     #base_param['solver_gamma'] = 0.8
     base_param['solver_gamma'] = np.random.choice([1, 0.8, 0.6, 0.4])
-    base_param['solver_snapshot_prefix'] = "%s/%s.%s" % (config.snapshot_dir, os.path.dirname(os.path.realpath(__file__)).split('/')[-1], run_id)
+    base_param['solver_snapshot_prefix'] = "examples/ptb/ptb"
     base_param['solver_random_seed'] = 17
     base_param['solver_solver_mode'] = SolverParameter.GPU
-    base_param['solver_test_iter'] = 30
+    base_param['solver_test_interval'] = 1000
+    base_param['solver_test_iter'] = 200
     return base_param
 
-def run(idx, param):
+def prepare(param):
     write_solver(param)
     write_net(param)
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--make_data', action='store_true')
-    parser.add_argument('--launch', action='store_true')
     args = parser.parse_args()
     if args.make_data:
-        make_data(get_base_param(0))
-    if args.launch:
-        for i in range(10):
-            i1 = '%s.1' % str(i)
-            param1 = get_base_param(i1)
-            run(i1, param1)
-            p1 = subprocess.Popen('mpirun -n 1 ./build/tools/caffe train --solver=./models/rnn/solver%s.prototxt 2>&1 --gpu 1 | tee a%s.txt' % (i1, i1), shell=True)
-            i2 = '%s.2' % str(i)
-            param2 = get_base_param(i2)
-            run(i2, param2)
-            p2 = subprocess.Popen('mpirun -n 1 ./build/tools/caffe train --solver=./models/rnn/solver%s.prototxt 2>&1 --gpu 2 | tee a%s.txt' % (i2, i2), shell=True)
-            p1.wait()
-            p2.wait()
-
+        make_data(get_base_param())
+    prepare(get_base_param())
 
 if __name__ == '__main__':
     main()
