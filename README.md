@@ -28,7 +28,7 @@ You'll notice this generates train, test, and validation databases in examples/p
 
 The resulting wordvectors can be viewed with:
 
-    ipython notebook ./examples/ptb/ptb-visualization.ipynb
+    ipython notebook ./examples/ptb/ptb_visualization.ipynb
 
 [1] All citations should be addressed to the <a href="https://github.com/BVLC/caffe">main Caffe repository</a>. Licensing is identical to that of a Caffe pull request.
 
