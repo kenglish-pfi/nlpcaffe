@@ -24,7 +24,8 @@ def make_data(param):
 
             target_line = [t_foo(int(x)) for x in target_input.split(' ')[:param['target_length']]]
 
-            target_line = target_line[:param['target_length']] + [param['t_zero_symbol']] * (param['target_length'] - len(target_line[:param['target_length']]))
+            target_line = target_line[:param['target_length'] - 1] + [param['t_stop_symbol']] + \
+                          [param['t_zero_symbol']] * (param['target_length'] - len(target_line[:param['target_length']]) - 1)
             assert len(target_line) == param['target_length']
             return target_line
 
@@ -300,35 +301,33 @@ def get_base_param():
     base_param = {}
     base_param['net_name'] = "ManningNet"
     base_param['target_length'] = 30
-    base_param['target_vocab_size'] = 11000
+    base_param['target_vocab_size'] = 10004
     base_param['num_lstm_stacks'] = 1
 
-    base_param['t_unknown_symbol'] = base_param['target_vocab_size'] - 3
-    base_param['t_start_symbol'] = base_param['target_vocab_size'] - 2
+    base_param['t_unknown_symbol'] = base_param['target_vocab_size'] - 4
+    base_param['t_start_symbol'] = base_param['target_vocab_size'] - 3
+    base_param['t_stop_symbol'] = base_param['target_vocab_size'] - 2
     base_param['t_zero_symbol'] = base_param['target_vocab_size'] - 1
 
-    base_param['train_batch_size'] = 32
-    base_param['deploy_batch_size'] = 32
+    base_param['train_batch_size'] = 128
+    base_param['deploy_batch_size'] = 128
     base_param['lstm_num_cells'] = 250
     base_param['wordvec_length'] = 250
-    base_param['dropout_ratio'] = np.random.choice([0.2, 0.5])
+    base_param['dropout_ratio'] = 0.2
 
     base_param['file_solver'] = "examples/ptb/solver.prototxt"
     base_param['file_train_val_net'] = "examples/ptb/train_val.prototxt"
     base_param['file_deploy_net'] = "examples/ptb/deploy.prototxt"
-    #base_param['solver_base_lr'] = 1
-    base_param['solver_base_lr'] = np.round(1 * 30 ** random.random(), 2)
+    base_param['solver_base_lr'] = 15
     base_param['solver_weight_decay'] = 0.0000
     base_param['solver_lr_policy'] = "fixed"
     base_param['solver_display'] = 20
-    base_param['solver_max_iter'] = 100
-    #base_param['solver_clip_gradients'] = -1
-    base_param['solver_clip_gradients'] = np.random.choice([0.5, 1, 2, 10])
+    base_param['solver_max_iter'] = 10000
+    base_param['solver_clip_gradients'] = 1
     base_param['solver_snapshot'] = 10000
     base_param['solver_lr_policy'] = 'step'
     base_param['solver_stepsize'] = 5000
-    #base_param['solver_gamma'] = 0.8
-    base_param['solver_gamma'] = np.random.choice([1, 0.8, 0.6, 0.4])
+    base_param['solver_gamma'] = 0.8
     base_param['solver_snapshot_prefix'] = "examples/ptb/ptb"
     base_param['solver_random_seed'] = 17
     base_param['solver_solver_mode'] = SolverParameter.GPU
