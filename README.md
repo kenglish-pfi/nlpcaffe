@@ -32,4 +32,4 @@ All citations should be addressed to the <a href="https://github.com/BVLC/caffe"
 
 [2]
 
-The average sentence has 19.85 words when long sentences are capped to 30 words. We train batches of 128 sentences with an average batch time of 0.128 s on a Nvidia GTX 780 TI, yielding the calculation of 19,850 words per second.
+The average sentence has 19.85 words when long sentences are capped to 30 words. We train batches of 128 sentences with an average batch time of 0.128 s on a Nvidia GTX 780 TI.
