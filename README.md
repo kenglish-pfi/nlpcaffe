@@ -26,6 +26,10 @@ You'll notice this generates train, test, and validation databases in examples/p
 
     ./examples/ptb/train_ptb.sh
 
+The resulting wordvectors can be viewed with:
+
+    ipython notebook ./examples/ptb/ptb-visualization.ipynb
+
 [1] All citations should be addressed to the <a href="https://github.com/BVLC/caffe">main Caffe repository</a>. Licensing is identical to that of a Caffe pull request.
 
 [2] The average sentence has 19.85 words when long sentences are capped to 30 words. We train batches of 128 sentences with an average batch time of 0.128 s on a Nvidia GTX 780 TI.
