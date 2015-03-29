@@ -13,6 +13,7 @@ from caffe_pb2 import Datum
 
 def make_data(param):
     for phase in ['train', 'valid', 'test']:
+        print 'Starting %s' % phase
         db_name = './examples/ptb/ptb_%s_db' % phase
         subprocess.call(['rm', '-rf', db_name])
         env = lmdb.open(db_name, map_size=2147483648*8)
@@ -33,7 +34,7 @@ def make_data(param):
             for en in f1.readlines():
                 allX.append(vocab_transform(en))
 
-        print len(allX)
+        print 'Writing %s sentences' % len(allX)
 
         with env.begin(write=True) as txn:
             for i, target_line in enumerate(allX):
@@ -41,8 +42,6 @@ def make_data(param):
                 datum.channels = 2 * param['maximum_length']
                 datum.width = 1
                 datum.height = 1
-                if i % 1000 == 0:
-                    sys.stderr.write('%s\r' % i); sys.stderr.flush()
                 for j in range(param['maximum_length']):
                     if j == 0:
                         datum.float_data.append(param['start_symbol'])
