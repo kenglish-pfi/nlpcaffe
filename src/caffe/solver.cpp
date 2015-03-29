@@ -603,6 +603,7 @@ void NesterovSolver<Dtype>::ComputeUpdateValue() {
   switch (Caffe::mode()) {
   case Caffe::CPU:
     for (int param_id = 0; param_id < net_params.size(); ++param_id) {
+      if (this->net_->param_owners()[param_id] >= 0) { continue; }
       // save history momentum for stepping back
       caffe_copy(net_params[param_id]->count(),
           this->history_[param_id]->cpu_data(),
@@ -650,6 +651,7 @@ void NesterovSolver<Dtype>::ComputeUpdateValue() {
   case Caffe::GPU:
 #ifndef CPU_ONLY
     for (int param_id = 0; param_id < net_params.size(); ++param_id) {
+      if (this->net_->param_owners()[param_id] >= 0) { continue; }
       // save history momentum for stepping back
       caffe_copy(net_params[param_id]->count(),
           this->history_[param_id]->gpu_data(),
@@ -720,6 +722,7 @@ void AdaGradSolver<Dtype>::ComputeUpdateValue() {
   switch (Caffe::mode()) {
   case Caffe::CPU:
     for (int param_id = 0; param_id < net_params.size(); ++param_id) {
+      if (this->net_->param_owners()[param_id] >= 0) { continue; }
       Dtype local_rate = rate * net_params_lr[param_id];
       Dtype local_decay = weight_decay * net_params_weight_decay[param_id];
 
@@ -776,6 +779,7 @@ void AdaGradSolver<Dtype>::ComputeUpdateValue() {
   case Caffe::GPU:
 #ifndef CPU_ONLY
     for (int param_id = 0; param_id < net_params.size(); ++param_id) {
+      if (this->net_->param_owners()[param_id] >= 0) { continue; }
       Dtype local_rate = rate * net_params_lr[param_id];
       Dtype local_decay = weight_decay * net_params_weight_decay[param_id];
 
