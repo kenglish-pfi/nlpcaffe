@@ -211,7 +211,7 @@ void Solver<Dtype>::Step(int iters) {
     net_->Update();
 
     // Save a snapshot if needed.
-    if (param_.snapshot() && (iter_ + 1) % (iter_ + 1 < param_.snapshot() ? param_.snapshot() / 10 : param_.snapshot()) == 0) {
+    if (param_.snapshot() && (iter_ + 1) % param_.snapshot() == 0) {
       Snapshot();
     }
   }
