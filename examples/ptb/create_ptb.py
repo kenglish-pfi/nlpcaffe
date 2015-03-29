@@ -23,8 +23,8 @@ def make_data(param):
 
             target_line = [t_foo(int(x)) for x in target_input.split(' ')[:param['maximum_length']]]
 
-            target_line = target_line[:param['maximum_length'] - 1] + [param['stop_symbol']] + \
-                          [param['zero_symbol']] * (param['maximum_length'] - len(target_line[:param['maximum_length']]) - 1)
+            target_line = target_line[:param['maximum_length']] + \
+                          [param['zero_symbol']] * (param['maximum_length'] - len(target_line[:param['maximum_length']]))
             assert len(target_line) == param['maximum_length']
             return target_line
 
@@ -73,17 +73,6 @@ def get_solver(param):
     solver.test_iter.append(param['solver_test_iter'])
     return solver
 
-
-def display_layer(net, name):
-    layer = net.layer.add()
-    layer.name = 'display_%s' % name
-    layer.top.append('display_%s' % name)
-    layer.bottom.append(name)
-    layer.bottom.append(name)
-    layer.type = "Eltwise"
-    layer.eltwise_param.coeff.append(0.5)
-    layer.eltwise_param.coeff.append(0.5)
-
 def add_weight_filler(param, max_value=0.07):
     param.type = 'uniform'
     param.min = -max_value
@@ -103,19 +92,18 @@ def get_net(param, deploy, batch_size):
         train_data.data_param.backend = DataParameter.LMDB
         train_data.data_param.batch_size = batch_size
 
-        if True:
-            test_data = net.layer.add()
-            test_data.type = "Data"
-            test_data.name = "data"
-            test_data.top.append(test_data.name)
-            test_data.data_param.source = 'examples/ptb/ptb_valid_db'
-            test_data.data_param.backend = DataParameter.LMDB
-            test_data.data_param.batch_size = batch_size
+        test_data = net.layer.add()
+        test_data.type = "Data"
+        test_data.name = "data"
+        test_data.top.append(test_data.name)
+        test_data.data_param.source = 'examples/ptb/ptb_valid_db'
+        test_data.data_param.backend = DataParameter.LMDB
+        test_data.data_param.batch_size = batch_size
 
-            test_data_rule = test_data.include.add()
-            test_data_rule.phase = caffe_pb2.TEST
-            train_data_rule = train_data.include.add()
-            train_data_rule.phase = caffe_pb2.TRAIN
+        test_data_rule = test_data.include.add()
+        test_data_rule.phase = caffe_pb2.TEST
+        train_data_rule = train_data.include.add()
+        train_data_rule.phase = caffe_pb2.TRAIN
 
 
     data_slice_layer = net.layer.add()
@@ -300,12 +288,11 @@ def get_base_param():
     param = {}
     param['net_name'] = "ManningNet"
     param['maximum_length'] = 30
-    param['vocab_size'] = 10004
+    param['vocab_size'] = 10003
     param['num_lstm_stacks'] = 1
 
-    param['unknown_symbol'] = param['vocab_size'] - 4
-    param['start_symbol'] = param['vocab_size'] - 3
-    param['stop_symbol'] = param['vocab_size'] - 2
+    param['unknown_symbol'] = param['vocab_size'] - 3
+    param['start_symbol'] = param['vocab_size'] - 2
     param['zero_symbol'] = param['vocab_size'] - 1
 
     param['train_batch_size'] = 128
@@ -323,7 +310,7 @@ def get_base_param():
     param['solver_display'] = 20
     param['solver_max_iter'] = 10000
     param['solver_clip_gradients'] = 1
-    param['solver_snapshot'] = 10000
+    param['solver_snapshot'] = 1000
     param['solver_lr_policy'] = 'step'
     param['solver_stepsize'] = 5000
     param['solver_gamma'] = 0.8
