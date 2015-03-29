@@ -17,16 +17,15 @@ def make_data(param):
         subprocess.call(['rm', '-rf', db_name])
         env = lmdb.open(db_name, map_size=2147483648*8)
 
-
         def vocab_transform(target_input):
             def t_foo(x):
-                return x if x < param['t_unknown_symbol'] else param['t_unknown_symbol']
+                return x if x < param['unknown_symbol'] else param['unknown_symbol']
 
-            target_line = [t_foo(int(x)) for x in target_input.split(' ')[:param['target_length']]]
+            target_line = [t_foo(int(x)) for x in target_input.split(' ')[:param['maximum_length']]]
 
-            target_line = target_line[:param['target_length'] - 1] + [param['t_stop_symbol']] + \
-                          [param['t_zero_symbol']] * (param['target_length'] - len(target_line[:param['target_length']]) - 1)
-            assert len(target_line) == param['target_length']
+            target_line = target_line[:param['maximum_length'] - 1] + [param['stop_symbol']] + \
+                          [param['zero_symbol']] * (param['maximum_length'] - len(target_line[:param['maximum_length']]) - 1)
+            assert len(target_line) == param['maximum_length']
             return target_line
 
         allX = []
@@ -39,17 +38,17 @@ def make_data(param):
         with env.begin(write=True) as txn:
             for i, target_line in enumerate(allX):
                 datum = Datum()
-                datum.channels = 2 * param['target_length']
+                datum.channels = 2 * param['maximum_length']
                 datum.width = 1
                 datum.height = 1
                 if i % 1000 == 0:
                     sys.stderr.write('%s\r' % i); sys.stderr.flush()
-                for j in range(param['target_length']):
+                for j in range(param['maximum_length']):
                     if j == 0:
-                        datum.float_data.append(param['t_start_symbol'])
+                        datum.float_data.append(param['start_symbol'])
                     else:
                         datum.float_data.append(target_line[j - 1])
-                for j in range(param['target_length']):
+                for j in range(param['maximum_length']):
                     datum.float_data.append(target_line[j])
                 key = str(i)
                 txn.put(key, datum.SerializeToString())
@@ -109,7 +108,7 @@ def get_net(param, deploy, batch_size):
             test_data.type = "Data"
             test_data.name = "data"
             test_data.top.append(test_data.name)
-            test_data.data_param.source = 'examples/ptb/ptb_test_db'
+            test_data.data_param.source = 'examples/ptb/ptb_valid_db'
             test_data.data_param.backend = DataParameter.LMDB
             test_data.data_param.batch_size = batch_size
 
@@ -124,42 +123,42 @@ def get_net(param, deploy, batch_size):
     data_slice_layer.type = "Slice"
     data_slice_layer.slice_param.slice_dim = 1
     data_slice_layer.bottom.append('data')
+    data_slice_layer.top.append('input_words')
     data_slice_layer.top.append('target_words')
-    data_slice_layer.top.append('target')
-    data_slice_layer.slice_param.slice_point.append(param['target_length'])
+    data_slice_layer.slice_param.slice_point.append(param['maximum_length'])
 
     label_slice_layer = net.layer.add()
     label_slice_layer.name = "label_slice_layer"
     label_slice_layer.type = "Slice"
     label_slice_layer.slice_param.slice_dim = 1
-    label_slice_layer.bottom.append('target')
-    for i in range(param['target_length']):
+    label_slice_layer.bottom.append('target_words')
+    for i in range(param['maximum_length']):
         label_slice_layer.top.append('label%d' % i)
         if i != 0:
             label_slice_layer.slice_param.slice_point.append(i)
 
-    target_wordvec_layer = net.layer.add()
-    target_wordvec_layer.name = "target_wordvec_layer"
-    target_wordvec_layer.type = "Wordvec"
-    target_wordvec_layer.bottom.append('target_words')
-    target_wordvec_layer.top.append(target_wordvec_layer.name)
-    target_wordvec_layer.wordvec_param.dimension = wordvec_length
-    target_wordvec_layer.wordvec_param.vocab_size = param['target_vocab_size']
-    add_weight_filler(target_wordvec_layer.wordvec_param.weight_filler)
+    wordvec_layer = net.layer.add()
+    wordvec_layer.name = "wordvec_layer"
+    wordvec_layer.type = "Wordvec"
+    wordvec_layer.bottom.append('input_words')
+    wordvec_layer.top.append(wordvec_layer.name)
+    wordvec_layer.wordvec_param.dimension = wordvec_length
+    wordvec_layer.wordvec_param.vocab_size = param['vocab_size']
+    add_weight_filler(wordvec_layer.wordvec_param.weight_filler)
 
-    target_wordvec_slice_layer = net.layer.add()
-    target_wordvec_slice_layer.name = "target_wordvec_slice_layer"
-    target_wordvec_slice_layer.type = "Slice"
-    target_wordvec_slice_layer.slice_param.slice_dim = 2
-    target_wordvec_slice_layer.slice_param.fast_wordvec_slice = True
-    target_wordvec_slice_layer.bottom.append('target_wordvec_layer')
-    for i in range(param['target_length']):
-        target_wordvec_slice_layer.top.append('target_wordvec%d' % i)
+    wordvec_slice_layer = net.layer.add()
+    wordvec_slice_layer.name = "wordvec_slice_layer"
+    wordvec_slice_layer.type = "Slice"
+    wordvec_slice_layer.slice_param.slice_dim = 2
+    wordvec_slice_layer.slice_param.fast_wordvec_slice = True
+    wordvec_slice_layer.bottom.append('wordvec_layer')
+    for i in range(param['maximum_length']):
+        wordvec_slice_layer.top.append('target_wordvec%d' % i)
         if i != 0:
-            target_wordvec_slice_layer.slice_param.slice_point.append(i)
+            wordvec_slice_layer.slice_param.slice_point.append(i)
 
 
-    for i in range(param['target_length']):
+    for i in range(param['maximum_length']):
         if i == 0:
             dummy_layer = net.layer.add()
             dummy_layer.name = 'dummy_layer'
@@ -229,7 +228,7 @@ def get_net(param, deploy, batch_size):
     hidden_concat_layer.name = 'hidden_concat'
     hidden_concat_layer.top.append(hidden_concat_layer.name)
     hidden_concat_layer.concat_param.concat_dim = 0
-    for i in range(param['target_length']):
+    for i in range(param['maximum_length']):
         hidden_concat_layer.bottom.append('dropout%d_%d' % (param['num_lstm_stacks'] - 1, i))
 
     inner_product_layer = net.layer.add()
@@ -238,7 +237,7 @@ def get_net(param, deploy, batch_size):
     inner_product_layer.bottom.append('hidden_concat')
     inner_product_layer.type = "InnerProduct"
     inner_product_layer.inner_product_param.bias_term = False
-    inner_product_layer.inner_product_param.num_output = param['target_vocab_size']
+    inner_product_layer.inner_product_param.num_output = param['vocab_size']
     add_weight_filler(inner_product_layer.inner_product_param.weight_filler)
 
     label_concat_layer = net.layer.add()
@@ -246,7 +245,7 @@ def get_net(param, deploy, batch_size):
     label_concat_layer.type = "Concat"
     label_concat_layer.concat_param.concat_dim = 0
     label_concat_layer.top.append(label_concat_layer.name)
-    for i in range(param['target_length']):
+    for i in range(param['maximum_length']):
         label_concat_layer.bottom.append('label%d' % i)
 
     if deploy:
@@ -263,15 +262,15 @@ def get_net(param, deploy, batch_size):
         word_loss_layer.bottom.append("inner_product")
         word_loss_layer.bottom.append("label_concat")
         word_loss_layer.top.append(word_loss_layer.name)
-        word_loss_layer.loss_param.ignore_label = param['t_zero_symbol']
+        word_loss_layer.loss_param.ignore_label = param['zero_symbol']
 
     silence_layer = net.layer.add()
     silence_layer.name = "silence"
     silence_layer.type = "Silence"
     for j in range(param['num_lstm_stacks']):
-        silence_layer.bottom.append("lstm%d_mem_cell%d" % (j, param['target_length'] - 1))
+        silence_layer.bottom.append("lstm%d_mem_cell%d" % (j, param['maximum_length'] - 1))
     for j in range(param['num_lstm_stacks'] - 1):
-        silence_layer.bottom.append("dropout%d_%d" % (j, param['target_length'] - 1))
+        silence_layer.bottom.append("dropout%d_%d" % (j, param['maximum_length'] - 1))
 
     return net
 
@@ -293,47 +292,47 @@ input_dim: %s
 input_dim: 1
 input_dim: 1
 
-''' % (param['deploy_batch_size'], 2 * param['target_length']))
+''' % (param['deploy_batch_size'], 2 * param['maximum_length']))
         f.write(str(get_net(param, deploy=True, batch_size = param['deploy_batch_size'])))
 
 
 def get_base_param():
-    base_param = {}
-    base_param['net_name'] = "ManningNet"
-    base_param['target_length'] = 30
-    base_param['target_vocab_size'] = 10004
-    base_param['num_lstm_stacks'] = 1
+    param = {}
+    param['net_name'] = "ManningNet"
+    param['maximum_length'] = 30
+    param['vocab_size'] = 10004
+    param['num_lstm_stacks'] = 1
 
-    base_param['t_unknown_symbol'] = base_param['target_vocab_size'] - 4
-    base_param['t_start_symbol'] = base_param['target_vocab_size'] - 3
-    base_param['t_stop_symbol'] = base_param['target_vocab_size'] - 2
-    base_param['t_zero_symbol'] = base_param['target_vocab_size'] - 1
+    param['unknown_symbol'] = param['vocab_size'] - 4
+    param['start_symbol'] = param['vocab_size'] - 3
+    param['stop_symbol'] = param['vocab_size'] - 2
+    param['zero_symbol'] = param['vocab_size'] - 1
 
-    base_param['train_batch_size'] = 128
-    base_param['deploy_batch_size'] = 128
-    base_param['lstm_num_cells'] = 250
-    base_param['wordvec_length'] = 250
-    base_param['dropout_ratio'] = 0.2
+    param['train_batch_size'] = 128
+    param['deploy_batch_size'] = 128
+    param['lstm_num_cells'] = 250
+    param['wordvec_length'] = 250
+    param['dropout_ratio'] = 0.2
 
-    base_param['file_solver'] = "examples/ptb/solver.prototxt"
-    base_param['file_train_val_net'] = "examples/ptb/train_val.prototxt"
-    base_param['file_deploy_net'] = "examples/ptb/deploy.prototxt"
-    base_param['solver_base_lr'] = 15
-    base_param['solver_weight_decay'] = 0.0000
-    base_param['solver_lr_policy'] = "fixed"
-    base_param['solver_display'] = 20
-    base_param['solver_max_iter'] = 10000
-    base_param['solver_clip_gradients'] = 1
-    base_param['solver_snapshot'] = 10000
-    base_param['solver_lr_policy'] = 'step'
-    base_param['solver_stepsize'] = 5000
-    base_param['solver_gamma'] = 0.8
-    base_param['solver_snapshot_prefix'] = "examples/ptb/ptb"
-    base_param['solver_random_seed'] = 17
-    base_param['solver_solver_mode'] = SolverParameter.GPU
-    base_param['solver_test_interval'] = 1000
-    base_param['solver_test_iter'] = 200
-    return base_param
+    param['file_solver'] = "examples/ptb/solver.prototxt"
+    param['file_train_val_net'] = "examples/ptb/train_val.prototxt"
+    param['file_deploy_net'] = "examples/ptb/deploy.prototxt"
+    param['solver_base_lr'] = 15
+    param['solver_weight_decay'] = 0.0000
+    param['solver_lr_policy'] = "fixed"
+    param['solver_display'] = 20
+    param['solver_max_iter'] = 10000
+    param['solver_clip_gradients'] = 1
+    param['solver_snapshot'] = 10000
+    param['solver_lr_policy'] = 'step'
+    param['solver_stepsize'] = 5000
+    param['solver_gamma'] = 0.8
+    param['solver_snapshot_prefix'] = "examples/ptb/ptb"
+    param['solver_random_seed'] = 17
+    param['solver_solver_mode'] = SolverParameter.GPU
+    param['solver_test_interval'] = 1000
+    param['solver_test_iter'] = 200
+    return param
 
 def prepare(param):
     write_solver(param)
