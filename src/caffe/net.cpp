@@ -788,7 +788,21 @@ void Net<Dtype>::ToProto(NetParameter* param, bool write_diff) const {
     param->add_input(blob_names_[net_input_blob_indices_[i]]);
   }
   DLOG(INFO) << "Serializing " << layers_.size() << " layers";
+  int net_param_id = 0;
   for (int i = 0; i < layers_.size(); ++i) {
+    bool shared_param_layer = layers_[i]->blobs().size() ? true : false;
+    for (int j = 0; j < layers_[i]->blobs().size(); ++j) {
+      CHECK_EQ(param_layer_indices_[net_param_id].first, i);
+      CHECK_EQ(param_layer_indices_[net_param_id].second, j);
+      if (param_owners_[net_param_id] < 0 ||
+            param_owners_[net_param_id] == net_param_id) {
+        shared_param_layer = false;
+      }
+      net_param_id++;
+    }
+    if (shared_param_layer) {
+      continue;
+    }
     LayerParameter* layer_param = param->add_layer();
     for (int j = 0; j < bottom_id_vecs_[i].size(); ++j) {
       layer_param->add_bottom(blob_names_[bottom_id_vecs_[i][j]]);
