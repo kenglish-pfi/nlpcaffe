@@ -36,6 +36,9 @@ The resulting wordvectors can be viewed with:
 
 To get a better general understanding of how Caffe works, you can take advantage of the content in the <a href="http://caffe.berkeleyvision.org/installation.html">caffe tutorials section</a>. In particular, the <a href="http://caffe.berkeleyvision.org/gathered/examples/mnist.html">MNIST tutorial</a> is useful to understand Caffe's command line interface and architecture description text files. To learn how to investigate the weights and performance of a trained model with an IPython Notebook, the <a href="http://nbviewer.ipython.org/github/BVLC/caffe/blob/master/examples/filter_visualization.ipynb">filter visualization tutorial</a> may be helpful.
 
+<br>
+<br>
+
 [1] All citations should be addressed to the <a href="https://github.com/BVLC/caffe">main Caffe repository</a>. Licensing is identical to that of a Caffe pull request.
 
 [2] The average sentence has 19.85 words when long sentences are capped to 30 words. We train batches of 128 sentences with an average batch time of 0.128 s on a Nvidia GTX 780 TI.
