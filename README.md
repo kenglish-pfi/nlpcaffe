@@ -20,9 +20,11 @@ First, cd to the caffe root directory and download the data for the Penn Tree Ba
 
 Using this data, you can generate the LMDB databases and the architecture train_val.prototxt with:
 
-    ./examples/ptb/create_ptb.sh --make_data
+    python ./examples/ptb/create_ptb.py --make_data
 
-You'll notice this generates train, test, and validation databases in examples/ptb. It also generates the train_val.prototxt architecture file and the solver.prototxt hyperparameter file. You can now begin to train the network with:
+You'll notice this generates train, test, and validation databases in examples/ptb. It also generates the train_val.prototxt architecture file and the solver.prototxt hyperparameter file. By editing this file, you can control the hyperparameters, dataset, and architecture used by NLP-Caffe with a python interface.
+
+You can now begin to train the network with:
 
     ./examples/ptb/train_ptb.sh
 
