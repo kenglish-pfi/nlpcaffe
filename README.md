@@ -6,9 +6,9 @@ This fork makes it easier for NLP users to get started without merging C++ code.
 
 # Installation
 
-Please consult the Caffe <a href="http://caffe.berkeleyvision.org/installation.html">installation instructions</a> first. Once you have successfully compiled caffe, compiling NLP-caffe will be straightforward. Clone this repo and use the `Makefile.config` from a working caffe install. Then run `make -j8 && make pycaffe` from the NLP-Caffe folder.
+We recommend consulting the Caffe <a href="http://caffe.berkeleyvision.org/installation.html">installation instructions</a> and compiling the standard Caffe library first. Next, clone this repo and run `make -j8 && make pycaffe` from the NLP-Caffe folder.
 
-To run the python LMDB database generation, you will also need to install <a href="https://github.com/dw/py-lmdb/">py-lmdb</a> with:
+NLP-Caffe also requires <a href="https://github.com/dw/py-lmdb/">py-lmdb</a>, which can be installed with:
 
     pip install py-lmdb
 
