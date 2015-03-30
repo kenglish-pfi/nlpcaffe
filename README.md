@@ -34,7 +34,7 @@ The resulting wordvectors can be viewed with:
 
 # Further reading
 
-To get a better general understanding of how Caffe works, you can take advantage of the content in the <a href="http://caffe.berkeleyvision.org/installation.html">caffe tutorials section</a>. In particular, the <a href="http://caffe.berkeleyvision.org/gathered/examples/mnist.html">MNIST tutorial</a> is useful to understand Caffe's command line interface and architecture description text files. To learn how to investigate the weights and performance of a trained model with an IPython Notebook, the <a href="http://nbviewer.ipython.org/github/BVLC/caffe/blob/master/examples/filter_visualization.ipynb">filter visualization tutorial</a> may be helpful.
+To get a better general understanding of how Caffe works, you can take advantage of the content in the <a href="http://caffe.berkeleyvision.org/installation.html">caffe tutorials section</a>. In particular, the <a href="http://nbviewer.ipython.org/github/BVLC/caffe/blob/master/examples/filter_visualization.ipynb">filter visualization tutorial</a> is a great example of how you can use the IPython notebook to investigate the weights and performance of a trained model. The <a href="http://caffe.berkeleyvision.org/gathered/examples/mnist.html">MNIST tutorial</a> is useful to understand how you can control Caffe over the command line and through architecture description text files.
 
 <br>
 <br>
