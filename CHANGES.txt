@@ -1,5 +1,6 @@
 git diff d02bb2c --name-status
 M	.gitignore
+A	CHANGES.txt
 M	README.md
 A	data/ptb/get_ptb.sh
 A	examples/ptb/create_ptb.py
@@ -11,7 +12,6 @@ M	include/caffe/test/test_gradient_check_util.hpp
 M	include/caffe/util/math_functions.hpp
 M	include/caffe/vision_layers.hpp
 M	python/caffe/classifier.py
-M	python/caffe/draw.py
 M	src/caffe/layers/concat_layer.cpp
 M	src/caffe/layers/concat_layer.cu
 A	src/caffe/layers/lstm_layer.cpp
@@ -30,6 +30,7 @@ M	src/caffe/test/test_slice_layer.cpp
 A	src/caffe/test/test_wordvec_layer.cpp
 M	src/caffe/util/math_functions.cu
 
+git diff d02bb2c
 diff --git a/.gitignore b/.gitignore
 index 28f2aca..5950eed 100644
 --- a/.gitignore
@@ -69,8 +70,47 @@ index 28f2aca..5950eed 100644
  # LevelDB files
  *.sst
  *.ldb
+diff --git a/CHANGES.txt b/CHANGES.txt
+new file mode 100644
+index 0000000..c44d85d
+--- /dev/null
++++ b/CHANGES.txt
+@@ -0,0 +1,33 @@
++git diff d02bb2c --name-status
++M	.gitignore
++A	CHANGES.txt
++M	README.md
++A	data/ptb/get_ptb.sh
++A	examples/ptb/create_ptb.py
++A	examples/ptb/ptb_visualization.ipynb
++A	examples/ptb/train_ptb.sh
++M	include/caffe/common_layers.hpp
++M	include/caffe/net.hpp
++M	include/caffe/test/test_gradient_check_util.hpp
++M	include/caffe/util/math_functions.hpp
++M	include/caffe/vision_layers.hpp
++M	python/caffe/classifier.py
++M	src/caffe/layers/concat_layer.cpp
++M	src/caffe/layers/concat_layer.cu
++A	src/caffe/layers/lstm_layer.cpp
++A	src/caffe/layers/lstm_layer.cu
++M	src/caffe/layers/slice_layer.cpp
++M	src/caffe/layers/slice_layer.cu
++A	src/caffe/layers/wordvec_layer.cpp
++A	src/caffe/layers/wordvec_layer.cu
++M	src/caffe/net.cpp
++M	src/caffe/proto/caffe.proto
++M	src/caffe/solver.cpp
++M	src/caffe/test/test_gradient_based_solver.cpp
++A	src/caffe/test/test_lstm_layer.cpp
++M	src/caffe/test/test_net.cpp
++M	src/caffe/test/test_slice_layer.cpp
++A	src/caffe/test/test_wordvec_layer.cpp
++M	src/caffe/util/math_functions.cu
++
++git diff d02bb2c
 diff --git a/README.md b/README.md
-index ebec286..6f4baad 100644
+index ebec286..136c1cb 100644
 --- a/README.md
 +++ b/README.md
 @@ -1,34 +1,44 @@
@@ -79,7 +119,7 @@ index ebec286..6f4baad 100644
  
 -Caffe is a deep learning framework made with expression, speed, and modularity in mind.
 -It is developed by the Berkeley Vision and Learning Center ([BVLC](http://bvlc.eecs.berkeley.edu)) and community contributors.
-+NLP-Caffe is a pull request [1] on the Caffe framework developed by Yangqing Jia and Evan Shelhamer, among other members of the BVLC lab at Berkeley and a large number of independent online contributers. 
++NLP-Caffe is a <a href="https://github.com/Russell91/nlp_caffe/blob/master/CHANGES.txt" target="_blank">pull request</a> [1] on the Caffe framework developed by Yangqing Jia and Evan Shelhamer, among other members of the BVLC lab at Berkeley and a large number of independent online contributers. 
  
 -Check out the [project site](http://caffe.berkeleyvision.org) for all the details like
 +This fork makes it easier for NLP users to get started without merging C++ code. The current example constructs a mid-size language model for the Penn Tree Bank using LSTMs that processes in excess of 15,000 words per second [2] and achieves a perplexity of 142. More examples for Machine Translation using the encoder-decoder model and character-level RNNs are in the works. Hopefully, this code will eventually be merged into the Caffe master branch. This work was funded by the <a href="http://nlp.stanford.edu/" target="_blank">Stanford NLP Group</a>, under the guidance of <a href="http://nlp.stanford.edu/~manning/" target="_blank">Chris Manning</a>, and with the invaluable expertise of <a href="http://stanford.edu/~lmthang/" target="_blank">Thang Luong</a>.
@@ -1034,21 +1074,6 @@ index 49f8003..09293b4 100644
 + 
 +    def rff(self, inputs):
 +        out = self.forward_all(**{self.inputs[0]: inputs})
-diff --git a/python/caffe/draw.py b/python/caffe/draw.py
-index 6a4dbd4..6757894 100644
---- a/python/caffe/draw.py
-+++ b/python/caffe/draw.py
-@@ -115,6 +115,10 @@ def get_pydot_graph(caffe_net, rankdir, label_edges=True):
-       pydot_nodes[name + '_' + layertype] = pydot.Node(
-           node_label, **NEURON_LAYER_STYLE)
-     else:
-+      #extra = str(layer)
-+      #value = '\n'
-+      #pydot_nodes[name + '_' + layertype] = pydot.Node(
-+          #'\"%s (%s):%s%s\"' % (name, layertype, value, extra.replace('\n', value).replace('"', '\'')), **LAYER_STYLE)
-       layer_style = LAYER_STYLE_DEFAULT
-       layer_style['fillcolor'] = choose_color_by_layertype(layertype)
-       pydot_nodes[name + '_' + layertype] = pydot.Node(
 diff --git a/src/caffe/layers/concat_layer.cpp b/src/caffe/layers/concat_layer.cpp
 index 1cac8fc..35e152c 100644
 --- a/src/caffe/layers/concat_layer.cpp
