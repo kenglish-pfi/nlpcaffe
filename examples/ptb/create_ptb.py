@@ -30,7 +30,7 @@ def make_data(param):
             return target_line
 
         allX = []
-        with open('./data/ptb/%s_indices.txt' % phase, 'r') as f1: 
+        with open('./data/ptb/%s_indices.txt' % phase, 'r') as f1:
             for en in f1.readlines():
                 allX.append(vocab_transform(en))
 
