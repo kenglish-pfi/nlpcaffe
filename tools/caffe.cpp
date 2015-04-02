@@ -105,8 +105,7 @@ int train() {
   // in the solver prototxt.
   if (FLAGS_gpu < 0
       && solver_param.solver_mode() == caffe::SolverParameter_SolverMode_GPU) {
-    //FLAGS_gpu = solver_param.device_id();
-    FLAGS_gpu = 0;
+    FLAGS_gpu = solver_param.device_id();
   }
 
   // Set device id and mode
