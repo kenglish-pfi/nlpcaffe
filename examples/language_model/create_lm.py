@@ -14,7 +14,7 @@ from caffe_pb2 import Datum
 def make_data(param):
     for phase in ['train', 'valid', 'test']:
         print 'Starting %s' % phase
-        db_name = './examples/ptb/ptb_%s_db' % phase
+        db_name = './examples/language_model/lm_%s_db' % phase
         subprocess.call(['rm', '-rf', db_name])
         env = lmdb.open(db_name, map_size=2147483648*8)
 
@@ -30,7 +30,7 @@ def make_data(param):
             return target_line
 
         allX = []
-        with open('./data/ptb/%s_indices.txt' % phase, 'r') as f1:
+        with open('./data/language_model/%s_indices.txt' % phase, 'r') as f1:
             for en in f1.readlines():
                 allX.append(vocab_transform(en))
 
@@ -72,22 +72,21 @@ def get_solver(param):
     solver.test_iter.append(param['solver_test_iter'])
     return solver
 
-def add_weight_filler(param, max_value=0.07):
-    param.type = 'uniform'
-    param.min = -max_value
-    param.max = max_value
 
 def get_net(param, deploy, batch_size):
     net = NetParameter()
-    lstm_num_cells = param['lstm_num_cells']
-    wordvec_length = param['wordvec_length']
+
+    def add_weight_filler(param, max_value=param['init_range']):
+        param.type = 'uniform'
+        param.min = -max_value
+        param.max = max_value
 
     if not deploy:
         train_data = net.layer.add()
         train_data.type = "Data"
         train_data.name = "data"
         train_data.top.append(train_data.name)
-        train_data.data_param.source = 'examples/ptb/ptb_train_db'
+        train_data.data_param.source = 'examples/language_model/lm_train_db'
         train_data.data_param.backend = DataParameter.LMDB
         train_data.data_param.batch_size = batch_size
 
@@ -95,7 +94,7 @@ def get_net(param, deploy, batch_size):
         test_data.type = "Data"
         test_data.name = "data"
         test_data.top.append(test_data.name)
-        test_data.data_param.source = 'examples/ptb/ptb_valid_db'
+        test_data.data_param.source = 'examples/language_model/lm_valid_db'
         test_data.data_param.backend = DataParameter.LMDB
         test_data.data_param.batch_size = batch_size
 
@@ -129,7 +128,7 @@ def get_net(param, deploy, batch_size):
     wordvec_layer.type = "Wordvec"
     wordvec_layer.bottom.append('input_words')
     wordvec_layer.top.append(wordvec_layer.name)
-    wordvec_layer.wordvec_param.dimension = wordvec_length
+    wordvec_layer.wordvec_param.dimension = param['wordvec_length']
     wordvec_layer.wordvec_param.vocab_size = param['vocab_size']
     add_weight_filler(wordvec_layer.wordvec_param.weight_filler)
 
@@ -152,7 +151,7 @@ def get_net(param, deploy, batch_size):
             dummy_layer.top.append(dummy_layer.name)
             dummy_layer.type = "DummyData"
             dummy_layer.dummy_data_param.num.append(batch_size)
-            dummy_layer.dummy_data_param.channels.append(lstm_num_cells)
+            dummy_layer.dummy_data_param.channels.append(param['lstm_num_cells'])
             dummy_layer.dummy_data_param.height.append(1)
             dummy_layer.dummy_data_param.width.append(1)
 
@@ -161,7 +160,7 @@ def get_net(param, deploy, batch_size):
             dummy_mem_cell.top.append(dummy_mem_cell.name)
             dummy_mem_cell.type = "DummyData"
             dummy_mem_cell.dummy_data_param.num.append(batch_size)
-            dummy_mem_cell.dummy_data_param.channels.append(lstm_num_cells)
+            dummy_mem_cell.dummy_data_param.channels.append(param['lstm_num_cells'])
             dummy_mem_cell.dummy_data_param.height.append(1)
             dummy_mem_cell.dummy_data_param.width.append(1)
 
@@ -185,7 +184,7 @@ def get_net(param, deploy, batch_size):
             lstm_layer = net.layer.add()
             lstm_layer.name = 'lstm%d_layer%d' % (j, i)
             lstm_layer.type = "Lstm"
-            lstm_layer.lstm_param.num_cells = lstm_num_cells
+            lstm_layer.lstm_param.num_cells = param['lstm_num_cells']
 
             add_weight_filler(lstm_layer.lstm_param.input_weight_filler)
             add_weight_filler(lstm_layer.lstm_param.input_gate_weight_filler)
@@ -288,7 +287,7 @@ def get_base_param():
     param['net_name'] = "ManningNet"
     param['maximum_length'] = 30
     param['vocab_size'] = 10003
-    param['num_lstm_stacks'] = 1
+    param['num_lstm_stacks'] = 2
 
     param['unknown_symbol'] = param['vocab_size'] - 3
     param['start_symbol'] = param['vocab_size'] - 2
@@ -298,23 +297,24 @@ def get_base_param():
     param['deploy_batch_size'] = 128
     param['lstm_num_cells'] = 250
     param['wordvec_length'] = 250
-    param['dropout_ratio'] = 0.2
+    param['dropout_ratio'] = 0.16
+    param['init_range'] = 0.14
 
-    param['file_solver'] = "examples/ptb/solver.prototxt"
-    param['file_train_val_net'] = "examples/ptb/train_val.prototxt"
-    param['file_deploy_net'] = "examples/ptb/deploy.prototxt"
-    param['solver_base_lr'] = 15
-    param['solver_weight_decay'] = 0.0000
+    param['file_solver'] = "examples/language_model/solver.prototxt"
+    param['file_train_val_net'] = "examples/language_model/train_val.prototxt"
+    param['file_deploy_net'] = "examples/language_model/deploy.prototxt"
+    param['solver_base_lr'] = 29.13
+    param['solver_weight_decay'] = 1.6 * 10 ** (-6)
     param['solver_lr_policy'] = "fixed"
-    param['solver_display'] = 20
-    param['solver_max_iter'] = 10000
-    param['solver_clip_gradients'] = 1
+    param['solver_display'] = 100
+    param['solver_max_iter'] = 20000
+    param['solver_clip_gradients'] = 0.24
     param['solver_snapshot'] = 1000
     param['solver_lr_policy'] = 'step'
-    param['solver_stepsize'] = 5000
-    param['solver_gamma'] = 0.8
-    param['solver_snapshot_prefix'] = "examples/ptb/ptb"
-    param['solver_random_seed'] = 17
+    param['solver_stepsize'] = 2500
+    param['solver_gamma'] = 0.792
+    param['solver_snapshot_prefix'] = "examples/language_model/lm"
+    param['solver_random_seed'] = 22
     param['solver_solver_mode'] = SolverParameter.GPU
     param['solver_test_interval'] = 1000
     param['solver_test_iter'] = 200
