@@ -192,7 +192,6 @@ message SolverParameter {
 
   // If false, don't save a snapshot after training finishes.
   optional bool snapshot_after_train = 28 [default = true];
-  optional float max_grad = 101; // Gradient clipping maximum
 }
 
 // A message that stores the solver snapshots
@@ -330,7 +329,6 @@ message LayerParameter {
   optional ReLUParameter relu_param = 123;
   optional SigmoidParameter sigmoid_param = 124;
   optional SoftmaxParameter softmax_param = 125;
-  optional SoftmaxProductParameter softmax_product_param = 203;
   optional SliceParameter slice_param = 126;
   optional TanHParameter tanh_param = 127;
   optional ThresholdParameter threshold_param = 128;
@@ -434,17 +432,6 @@ message ConvolutionParameter {
     CUDNN = 2;
   }
   optional Engine engine = 15 [default = DEFAULT];
-}
-
-message BatchnormParameter {
-  optional uint32 norm_dim = 1 [default = 0];
-  optional float var_epsilon = 2 [default = 0.001];
-}
-
-message BNParameter {
-  optional FillerParameter scale_filler = 1; // The filler for the scale
-  optional FillerParameter shift_filler = 2; // The filler for the shift
-  optional float var_epsilon = 3 [default = 0.001];
 }
 
 message LstmParameter {
