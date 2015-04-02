@@ -115,10 +115,6 @@ def get_pydot_graph(caffe_net, rankdir, label_edges=True):
       pydot_nodes[name + '_' + layertype] = pydot.Node(
           node_label, **NEURON_LAYER_STYLE)
     else:
-      #extra = str(layer)
-      #value = '\n'
-      #pydot_nodes[name + '_' + layertype] = pydot.Node(
-          #'\"%s (%s):%s%s\"' % (name, layertype, value, extra.replace('\n', value).replace('"', '\'')), **LAYER_STYLE)
       layer_style = LAYER_STYLE_DEFAULT
       layer_style['fillcolor'] = choose_color_by_layertype(layertype)
       pydot_nodes[name + '_' + layertype] = pydot.Node(
