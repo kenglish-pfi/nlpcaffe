@@ -14,7 +14,7 @@ NLP-Caffe also requires <a href="https://github.com/dw/py-lmdb/" target="_blank"
 
 # Tutorial
 
-First, cd to the caffe root directory and download the data for the Penn Tree Bank with:
+First, cd to the caffe root directory and download the data for the model with:
 
     ./data/language_model/get_lm.sh
 
