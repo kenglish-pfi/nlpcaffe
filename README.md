@@ -12,7 +12,7 @@ NLP-Caffe also requires <a href="https://github.com/dw/py-lmdb/" target="_blank"
 
     pip install py-lmdb
 
-# Tutorial
+# Example
 
 First, cd to the caffe root directory and download the data for the model with:
 
