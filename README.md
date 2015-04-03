@@ -38,7 +38,16 @@ The resulting wordvectors can be viewed with:
 
 To get a better general understanding of how Caffe works, you can take advantage of the content in the <a href="http://caffe.berkeleyvision.org/installation.html" target="_blank">caffe tutorials section</a>. In particular, the <a href="http://nbviewer.ipython.org/github/BVLC/caffe/blob/master/examples/filter_visualization.ipynb" target="_blank">filter visualization tutorial</a> is a great example of how you can use the IPython notebook to investigate the weights and performance of a trained model. The <a href="http://caffe.berkeleyvision.org/gathered/examples/mnist.html" target="_blank">MNIST tutorial</a> is useful to understand how you can control Caffe over the command line and through architecture description text files.
 
-<br>
+# What's changed?
+
+Caffe's current shared parameter implementation is pretty basic and requires memory usage that is linear in the number of layers sharing the memory. The net.cpp and solver.cpp files have been modified to remove this restriction and allow a constant overhead for sharing parameters that is only 50% more than the cost of a singly owned parameter, no matter how many layers are involved. Given this modification, you can build an RNN in caffe just by unrolling the number of layers you want in the prototxt file. Of course, you won't want to do this by hand, so we use the python google protobuf library to generate the prototxt. This has nice advantages like letting you create the train_val.prototxt and deploy.prototxt files simultaneously, and letting you generate random hyperparameters for multiple runs. 
+
+There are a few limitations of the implementation to be aware of. First, the library assumes each sentence is at most N words long, and that you have zero padded shorter sentences. The zero padding does not contribute to the loss function, but still costs processing time. There are a few ways this could be fixed, but none have been implemented yet. Fortunately, you can train on nets of a fixed max length and test on nets of a longer length. Constructing nets with a new lstm layer for each word in the sentence can also be a little daunting at first, but it's actually quite easy to manipulate all of these layers with python for loops once you get used to the idea.
+
+An lstm layer and wordvec layer have been added, which are crucial for the language model. The slice layer has been modified to support a much faster special use case. The concat layer has received a significant speed up by taking advantage of the cublas library to perform a matrix transpose before copying memory. This allows memory to be copied in 100x bigger chunks, reducing layer forward/backward times by more than 10x when concatenating along the channel dimension. Specific changes in the code can be seen in the CHANGES.txt file.
+
+As general advice, modifying this code to approach an entirely new NLP problem in Caffe is not for the feint of heart. On the other hand, if your research involves language models or similar problems (e.g. Part of Speech tagging), and you would like to experiment with more fancy architectures (e.g. convnet/lstm combos or clockwork lstms), than this codebase would be an excellent place to get started. You will have an very fast base implementation and all the modular goodness that comes with Caffe.
+
 <br>
 
 [1] All citations should be addressed to the <a href="https://github.com/BVLC/caffe" target="_blank">main Caffe repository</a>. Licensing is identical to that of a Caffe pull request.
