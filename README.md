@@ -46,7 +46,7 @@ There are a few limitations of the implementation to be aware of. First, the lib
 
 An lstm layer and wordvec layer have been added, which are crucial for the language model. The slice layer has been modified to support a much faster special use case. The concat layer has received a significant speed up by taking advantage of the cublas library to perform a matrix transpose before copying memory. This allows memory to be copied in 100x bigger chunks, reducing layer forward/backward times by more than 10x when concatenating along the channel dimension. Specific changes in the code can be seen in the CHANGES.txt file.
 
-As general advice, modifying this code to approach an entirely new NLP problem in Caffe is not for the feint of heart. On the other hand, if your research involves language models or similar problems (e.g. Part of Speech tagging), and you would like to experiment with more fancy architectures (e.g. convnet/lstm combos or clockwork lstms), than this codebase would be an excellent place to get started. You will have an very fast base implementation and all the modular goodness that comes with Caffe.
+As general advice, modifying this code to approach an entirely new NLP problem in Caffe is not for the feint of heart. On the other hand, if your research involves language models or similar problems (e.g. Part of Speech tagging), and you would like to experiment with more fancy architectures (e.g. convnet/lstm combos or clockwork lstms), then this codebase would be an excellent place to get started. You will have an very fast base implementation and all the modular goodness that comes with Caffe.
 
 <br>
 
