@@ -22,7 +22,7 @@ First, cd to the caffe root directory and download the data for the model with:
 
 Using this data, you can generate the LMDB databases and the architecture train_val.prototxt with:
 
-    python ./examples/launguage_model/create_lm.py --make_data
+    python ./examples/language_model/create_lm.py --make_data
 
 You'll notice this generates train, test, and validation databases in examples/language_model. It also generates the train_val.prototxt architecture file and the solver.prototxt hyperparameter file. By editing this file, you can control the hyperparameters, dataset, and architecture used by NLP-Caffe with a python interface.
 
