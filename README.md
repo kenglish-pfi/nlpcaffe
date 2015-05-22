@@ -12,7 +12,7 @@ We recommend consulting the Caffe <a href="http://caffe.berkeleyvision.org/insta
 
 NLP-Caffe also requires <a href="https://github.com/dw/py-lmdb/" target="_blank">py-lmdb</a> at runtime, which can be installed with:
 
-    pip install py-lmdb
+    pip install lmdb
 
 # Example
 
