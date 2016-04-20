@@ -1,7 +1,8 @@
 #include <vector>
-#include "caffe/layer.hpp"
+
+#include "caffe/filler.hpp"
 #include "caffe/util/math_functions.hpp"
-#include "caffe/vision_layers.hpp"
+#include "caffe/layers/lstm_layer.hpp"
 
 namespace caffe {
 
@@ -119,6 +120,9 @@ void LstmLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
 template <typename Dtype>
 void LstmLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
+  for (int i = 0; i < 2; ++i) {
+    caffe_set(bottom[i]->count(), Dtype(0), bottom[i]->mutable_cpu_diff());
+  }
   const Dtype* input_data = bottom[0]->cpu_data();
   const Dtype* prev_state_data = bottom[1]->cpu_data();
 
@@ -172,13 +176,6 @@ void LstmLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
 template <typename Dtype>
 void LstmLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
-  for (int i = 0; i < 2; ++i) {
-    caffe_set(bottom[i]->count(), Dtype(0), bottom[i]->mutable_cpu_diff());
-  }
-  for (int i = 0; i < 4; ++i) {
-    caffe_set(this->blobs_[i]->count(), Dtype(0), this->blobs_[i]->mutable_cpu_diff());
-  }
-
   const Dtype* input_data = bottom[0]->cpu_data();
   const Dtype* prev_state_data = bottom[1]->cpu_data();
 
@@ -245,7 +242,7 @@ void LstmLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   caffe_cpu_gemm<Dtype>(CblasTrans, CblasNoTrans,
     channels_, input_data_size_, num_,
     (Dtype)1., dldg_data, input_data,
-    (Dtype)0., input_weight_diff);
+    (Dtype)1., input_weight_diff);
   caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans,
     num_, input_data_size_, channels_,
     (Dtype)1., dldg_data, input_weight,
@@ -256,7 +253,7 @@ void LstmLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   caffe_cpu_gemm<Dtype>(CblasTrans, CblasNoTrans,
     channels_, input_data_size_, num_,
     (Dtype)1., dldg_data, input_data,
-    (Dtype)0., input_gate_weight_diff);
+    (Dtype)1., input_gate_weight_diff);
   caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans,
     num_, input_data_size_, channels_,
     (Dtype)1., dldg_data, input_gate_weight,
@@ -267,7 +264,7 @@ void LstmLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   caffe_cpu_gemm<Dtype>(CblasTrans, CblasNoTrans,
     channels_, input_data_size_, num_,
     (Dtype)1., dldg_data, input_data,
-    (Dtype)0., forget_gate_weight_diff);
+    (Dtype)1., forget_gate_weight_diff);
   caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans,
     num_, input_data_size_, channels_,
     (Dtype)1., dldg_data, forget_gate_weight,
@@ -280,7 +277,7 @@ void LstmLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   caffe_cpu_gemm<Dtype>(CblasTrans, CblasNoTrans,
     channels_, input_data_size_, num_,
     (Dtype)1., dldg_data, input_data,
-    (Dtype)0., output_gate_weight_diff);
+    (Dtype)1., output_gate_weight_diff);
   caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans,
     num_, input_data_size_, channels_,
     (Dtype)1., dldg_data, output_gate_weight,
