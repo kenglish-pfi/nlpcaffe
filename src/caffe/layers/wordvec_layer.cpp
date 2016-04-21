@@ -1,7 +1,7 @@
 #include <vector>
-#include "caffe/layer.hpp"
+#include "caffe/filler.hpp"
 #include "caffe/util/math_functions.hpp"
-#include "caffe/vision_layers.hpp"
+#include "caffe/layers/wordvec_layer.hpp"
 
 namespace caffe {
 
@@ -65,8 +65,6 @@ void WordvecLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   Dtype* weights_diff = this->blobs_[0]->mutable_cpu_diff();
   const Dtype* bottom_data = bottom[0]->cpu_data();
   const Dtype* top_diff = top[0]->cpu_diff();
-
-  caffe_set(this->blobs_[0]->count(), Dtype(0), weights_diff);
 
   for (int n = 0; n < num_; ++n) {
     for (int d = 0; d < dimension_; ++d) {

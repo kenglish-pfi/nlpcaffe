@@ -4,43 +4,11 @@
 #include <thrust/reduce.h>
 
 #include <cmath>
-#include <cstdlib>
-#include <cstring>
 
 #include "caffe/common.hpp"
 #include "caffe/util/math_functions.hpp"
 
 namespace caffe {
-
-template<>
-void caffe_gpu_transpose<float>(const int M, const int N, const float* A, float* C) {
-  // C is MxN
-  // Takes as input a M x N matrix A stored in row major order and returns
-  // the same M x N matrix C stored in column major order
-  CHECK_NE(A, C);
-  int lda = N;
-  int ldb = M;
-  int ldc = M;
-  const float alpha = 1.0f;
-  const float beta = 0.0f;
-  CUBLAS_CHECK(cublasSgeam(Caffe::cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, M, N, &alpha, A, lda, &beta,
-      NULL, ldb, C, ldc));
-}
-
-template<>
-void caffe_gpu_transpose<double>(const int M, const int N, const double* A, double* C) {
-  // C is MxN
-  // Takes as input a M x N matrix A stored in row major order and returns
-  // the same M x N matrix C stored in column major order
-  CHECK_NE(A, C);
-  int lda = N;
-  int ldb = M;
-  int ldc = M;
-  const double alpha = 1.0f;
-  const double beta = 0.0f;
-  CUBLAS_CHECK(cublasDgeam(Caffe::cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, M, N, &alpha, A, lda, &beta,
-      NULL, ldb, C, ldc));
-}
 
 template <>
 void caffe_gpu_gemm<float>(const CBLAS_TRANSPOSE TransA,
@@ -355,6 +323,27 @@ void caffe_gpu_exp<double>(const int N, const double* a, double* y) {
 }
 
 template <typename Dtype>
+__global__ void log_kernel(const int n, const Dtype* a, Dtype* y) {
+  CUDA_KERNEL_LOOP(index, n) {
+    y[index] = log(a[index]);
+  }
+}
+
+template <>
+void caffe_gpu_log<float>(const int N, const float* a, float* y) {
+  // NOLINT_NEXT_LINE(whitespace/operators)
+  log_kernel<float><<<CAFFE_GET_BLOCKS(N), CAFFE_CUDA_NUM_THREADS>>>(
+      N, a, y);
+}
+
+template <>
+void caffe_gpu_log<double>(const int N, const double* a, double* y) {
+  // NOLINT_NEXT_LINE(whitespace/operators)
+  log_kernel<double><<<CAFFE_GET_BLOCKS(N), CAFFE_CUDA_NUM_THREADS>>>(
+      N, a, y);
+}
+
+template <typename Dtype>
 __global__ void powx_kernel(const int n, const Dtype* a,
     const Dtype alpha, Dtype* y) {
   CUDA_KERNEL_LOOP(index, n) {
@@ -381,51 +370,6 @@ void caffe_gpu_powx<double>(const int N, const double* a,
 DEFINE_AND_INSTANTIATE_GPU_UNARY_FUNC(sign, y[index] = (Dtype(0) < x[index])
                                       - (x[index] < Dtype(0)));
 DEFINE_AND_INSTANTIATE_GPU_UNARY_FUNC(sgnbit, y[index] = signbit(x[index]));
-
-__global__ void popc_kernel(const int n, const float* a,
-    const float* b, uint8_t* y) {
-  CUDA_KERNEL_LOOP(index, n) {
-    y[index] = __popc(static_cast<uint32_t>(a[index]) ^
-                      static_cast<uint32_t>(b[index]));
-  }
-}
-
-__global__ void popcll_kernel(const int n, const double* a,
-    const double* b, uint8_t* y) {
-  CUDA_KERNEL_LOOP(index, n) {
-    y[index] = __popcll(static_cast<uint64_t>(a[index]) ^
-                      static_cast<uint64_t>(b[index]));
-  }
-}
-
-template <>
-uint32_t caffe_gpu_hamming_distance<float>(const int n, const float* x,
-                                  const float* y) {
-  // TODO: Fix caffe_gpu_hamming_distance (see failing unit test
-  // TestHammingDistanceGPU in test_math_functions.cpp).
-  NOT_IMPLEMENTED;
-  thrust::device_vector<uint8_t> popcounts(n);
-  // NOLINT_NEXT_LINE(whitespace/operators)
-  popc_kernel<<<CAFFE_GET_BLOCKS(n), CAFFE_CUDA_NUM_THREADS>>>(
-      n, x, y, thrust::raw_pointer_cast(popcounts.data()));
-  return thrust::reduce(popcounts.begin(), popcounts.end(),
-                        (uint32_t) 0, thrust::plus<uint32_t>());
-}
-
-template <>
-uint32_t caffe_gpu_hamming_distance<double>(const int n, const double* x,
-                                   const double* y) {
-  // TODO: Fix caffe_gpu_hamming_distance (see failing unit test
-  // TestHammingDistanceGPU in test_math_functions.cpp).
-  NOT_IMPLEMENTED;
-  thrust::device_vector<uint8_t> popcounts(n);
-  // NOLINT_NEXT_LINE(whitespace/operators)
-  popcll_kernel<<<CAFFE_GET_BLOCKS(n), CAFFE_CUDA_NUM_THREADS>>>(
-      n, x, y, thrust::raw_pointer_cast(popcounts.data()));
-  return thrust::reduce(popcounts.begin(), popcounts.end(),
-                        /* NOLINT_NEXT_LINE(build/include_what_you_use) */
-                        (uint32_t) 0, thrust::plus<uint32_t>());
-}
 
 void caffe_gpu_rng_uniform(const int n, unsigned int* r) {
   CURAND_CHECK(curandGenerate(Caffe::curand_generator(), r, n));
