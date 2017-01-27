@@ -6,6 +6,13 @@
 sudo apt-get -qq update -y
 sudo apt-get -q install --no-install-recommends -y gcc make libc-dev wget
 
+CURRRENT_VER_LINE=$(cat cat /proc/driver/nvidia/version | head -1 )
+if [[ $CURRRENT_VER_LINE == *"367.57"* ]]; then
+  echo "We have the correct version"
+  echo "Skip the reboot and continue to step 2"
+  exit
+fi
+
 # Install NVIDIA drivers 367.57
 #  This is incrementally newer than the version 367.48 that the Ubuntu repos hold.
 #  NVidia no longer has the 367.48 version on their downloads site and we have
