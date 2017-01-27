@@ -1,14 +1,5 @@
 #!/bin/bash
 
-for TESTFOR in "NVIDIA-Linux-x86_64-367.57.run" "nvidia-docker_1.0.0.rc.3-1_amd64.deb" 
-do
-    if [ ! -e $TESTFOR ]
-    then
-        echo File '"'$TESTFOR'"' must be present in this directory
-        exit 5
-    fi
-done
-
 # Reference:
 #   https://github.com/NVIDIA/nvidia-docker/wiki/Deploy-on-Amazon-EC2
 
