@@ -1,10 +1,15 @@
 #!/bin/bash
 
-sudo apt-get update
-sudo apt-get install curl \
-     libsystemd-journal0 \
+# Output from this command verifies we got our drivers set up
+nvidia-smi
+
+# This is mostly a repeat of installs that occurred in step 0 ... here for clarity of what Docker install requires
+sudo apt-get update -y
+sudo apt-get install -y curl \
+    build-essential \
+    libsystemd-journal0 \
     linux-image-extra-$(uname -r) \
-    linux-image-extra-virtual \
+    linux-image-extra-virtual
     
 
 sudo apt-get install apt-transport-https ca-certificates
