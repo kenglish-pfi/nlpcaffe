@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Output from this command verifies we got our drivers set up
-nvidia-smi
+sudo nvidia-smi
 
 # This is mostly a repeat of installs that occurred in step 0 ... here for clarity of what Docker install requires
 sudo apt-get update -y
@@ -12,7 +12,7 @@ sudo apt-get install -y curl \
     linux-image-extra-virtual
     
 
-sudo apt-get install apt-transport-https ca-certificates
+sudo apt-get install -y apt-transport-https ca-certificates
 
 curl -fsSL https://yum.dockerproject.org/gpg | sudo apt-key add -
 
