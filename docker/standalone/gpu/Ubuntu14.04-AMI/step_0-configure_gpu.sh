@@ -2,6 +2,7 @@
 
 # START WITH AMI (or regional equivalent):
 #  ubuntu/images/hvm-ssd/ubuntu-trusty-14.04-amd64-server-20161213 (ami-5ac2cd4d)
+#  launch on p2.xlarge instance
 
 # Reference:
 #   https://github.com/NVIDIA/nvidia-docker/wiki/Deploy-on-Amazon-EC2
