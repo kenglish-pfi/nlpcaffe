@@ -8,10 +8,10 @@
 #   https://github.com/NVIDIA/nvidia-docker/wiki/Deploy-on-Amazon-EC2
 
 sudo apt-get -q update -y
-sudo apt-get -q install -y build-essential kernel-package linux-image-extra-`uname -r` linux-image-extra-virtual wget 
+sudo apt-get -q install -y build-essential kernel-package linux-headers-`uname -r` linux-image-extra-`uname -r` linux-image-extra-virtual wget 
 sudo apt-get -q update -y
 
-CURRRENT_VER_LINE=$(cat cat /proc/driver/nvidia/version | head -1 )
+CURRRENT_VER_LINE=$(cat /proc/driver/nvidia/version | head -1 )
 if [[ $CURRRENT_VER_LINE == *"367.57"* ]]; then
   echo "We have the correct version"
   echo "Skip the reboot and continue to step 2"
